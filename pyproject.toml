@@ -5,7 +5,9 @@ description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
     "dotenv>=0.9.9",
+    "qdrant-client~=1.16",
     "requests-oauthlib~=2.0",
+    "sentence-transformers~=5.1",
 ]
 
 [dependency-groups]

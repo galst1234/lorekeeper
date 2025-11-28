@@ -1,15 +1,18 @@
 import os
 import json
-from dotenv import load_dotenv
 from requests_oauthlib import OAuth1Session
 
-load_dotenv(r"D:\dev\lorekeeper\.env")
+from config import ACCESS_TOKEN_URL, AUTHORIZE_URL, BALDURS_GATE_CAMPAIGN_ID, CONSUMER_KEY, CONSUMER_SECRET, \
+    QDRANT_COLLECTION_NAME, QDRANT_URL, REQUEST_TOKEN_URL
+from ingest import Document, prepare_document_points, upsert_points
 
-CONSUMER_KEY = os.environ["CONSUMER_KEY"]
-CONSUMER_SECRET = os.environ["CONSUMER_SECRET"]
-REQUEST_TOKEN_URL = os.environ["REQUEST_TOKEN_URL"]
-ACCESS_TOKEN_URL = os.environ["ACCESS_TOKEN_URL"]
-AUTHORIZE_URL = os.environ["AUTHORIZE_URL"]
+# load_dotenv(r"D:\dev\lorekeeper\.env")
+#
+# CONSUMER_KEY = os.environ["CONSUMER_KEY"]
+# CONSUMER_SECRET = os.environ["CONSUMER_SECRET"]
+# REQUEST_TOKEN_URL = os.environ["REQUEST_TOKEN_URL"]
+# ACCESS_TOKEN_URL = os.environ["ACCESS_TOKEN_URL"]
+# AUTHORIZE_URL = os.environ["AUTHORIZE_URL"]
 USER_AGENT = 'ObsidianPortalOAuthTest/1.0'
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), '.op_token.json')
 
@@ -74,3 +77,35 @@ def get_authenticated_session():
     )
     session.headers.update({'User-Agent': USER_AGENT})
     return session
+
+
+if __name__ == '__main__':
+    session = get_authenticated_session()
+    response = session.get(f"https://api.obsidianportal.com/v1/campaigns/{BALDURS_GATE_CAMPAIGN_ID}/wikis.json")
+    raw = response.json()
+    docs = [
+        Document(
+            id=item['id'],
+            type=item['type'],
+            title=item['name'],
+            content=item['body'],
+            source_url=item['wiki_page_url'],
+            tags=item['tags'],
+            gm_only=item['is_game_master_only'],
+            created_at=item['created_at'],
+            updated_at=item['updated_at'],
+        )
+        for item in raw
+    ]
+
+    from qdrant_client import QdrantClient
+    from sentence_transformers import SentenceTransformer
+
+    qdrant_client = QdrantClient(url=QDRANT_URL)
+    embed_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+
+    for i, doc in enumerate(docs):
+        print(f"Processing document {i + 1}")
+        points = prepare_document_points(doc, embed_model)
+        upsert_points(qdrant_client, collection_name=QDRANT_COLLECTION_NAME, points=points)
+
