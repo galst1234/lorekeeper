@@ -1,4 +1,5 @@
 import os
+import json
 from dotenv import load_dotenv
 from requests_oauthlib import OAuth1Session
 
@@ -10,8 +11,30 @@ REQUEST_TOKEN_URL = os.environ["REQUEST_TOKEN_URL"]
 ACCESS_TOKEN_URL = os.environ["ACCESS_TOKEN_URL"]
 AUTHORIZE_URL = os.environ["AUTHORIZE_URL"]
 USER_AGENT = 'ObsidianPortalOAuthTest/1.0'
+TOKEN_PATH = os.path.join(os.path.dirname(__file__), '.op_token.json')
+
+def save_token(token_dict):
+    with open(TOKEN_PATH, 'w') as f:
+        json.dump(token_dict, f)
+
+def load_token():
+    if os.path.exists(TOKEN_PATH):
+        with open(TOKEN_PATH, 'r') as f:
+            return json.load(f)
+    return None
 
 def get_authenticated_session():
+    token = load_token()
+    if token:
+        session = OAuth1Session(
+            CONSUMER_KEY,
+            client_secret=CONSUMER_SECRET,
+            resource_owner_key=token['oauth_token'],
+            resource_owner_secret=token['oauth_token_secret']
+        )
+        session.headers.update({'User-Agent': USER_AGENT})
+        return session
+
     # Step 1: Get request token
     oauth = OAuth1Session(
         CONSUMER_KEY,
@@ -40,6 +63,7 @@ def get_authenticated_session():
     oauth_tokens = oauth.fetch_access_token(ACCESS_TOKEN_URL)
     access_token = oauth_tokens['oauth_token']
     access_token_secret = oauth_tokens['oauth_token_secret']
+    save_token({'oauth_token': access_token, 'oauth_token_secret': access_token_secret})
 
     # Step 4: Return authenticated session
     session = OAuth1Session(
