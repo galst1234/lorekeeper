@@ -62,18 +62,20 @@ def prepare_document_points(doc: Document, embed_model: SentenceTransformer) -> 
     for i, (chunk, vector) in enumerate(zip(chunks, vectors)):
         point_id = str(uuid4())
         payload = {
-            "doc_id": doc.id,
-            "type": doc.type,
-            "title": doc.title,
-            "content": chunk,
-            "source_url": doc.source_url,
-            "tags": doc.tags,
-            "gm_only": doc.gm_only,
-            "created_at": doc.created_at,
-            "updated_at": doc.updated_at,
-            "chunk_index": i,
+            "document": chunk,
+            "metadata": {
+                "doc_id": doc.id,
+                "type": doc.type,
+                "title": doc.title,
+                "source_url": doc.source_url,
+                "tags": doc.tags,
+                "gm_only": doc.gm_only,
+                "created_at": doc.created_at,
+                "updated_at": doc.updated_at,
+                "chunk_index": i,
+            }
         }
-        points.append(PointStruct(id=point_id, vector=vector, payload=payload))
+        points.append(PointStruct(id=point_id, vector={"fast-all-minilm-l6-v2": vector}, payload=payload))
         print(f"Prepared Point ID: {point_id} with payload keys: {list(payload.keys())}")
     return points
 
