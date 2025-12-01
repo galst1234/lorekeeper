@@ -1,14 +1,15 @@
 import asyncio
 
 from pydantic_ai import Agent
+from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.ollama import OllamaProvider
-from pydantic_ai.mcp import MCPServerStreamableHTTP
 
 from config import OLLAMA_MODEL, OLLAMA_URL
 
 
-async def main():
+async def main() -> None:
+    # ruff: noqa: E501
     system_prompt = (
         "You aer LoreKeeper, you are the lore keeper of a Dungeons & Dragons campaign. "
         "You must answer ONLY using the information provided in the context below, or get more context via tool calls. "
@@ -18,7 +19,7 @@ async def main():
         "You may call tools multiple times to get more context if needed. "
         "After each tool call, review the new information and decide whether additional searches would improve your answer. "
         "Stop only when you are confident you have enough information to provide a complete and accurate answer, or say you don't know. "
-        "For non-trivial questions, you should usually perform at least 2–3 tool calls with different queries before answering, unless the first result is obviously sufficient. "
+        "For non-trivial questions, you should usually perform at least 2-3 tool calls with different queries before answering, unless the first result is obviously sufficient. "
         "When you want to use a tool, you MUST respond with a function/tool call, not plain text or JSON. Do NOT describe the tool call in text. Only use the function/tool call format. "
         "When you respond with your final answer, there is no need to start with explanatory text (e.g. Based on the provided information) just provide the answer directly. "
     )
@@ -27,7 +28,7 @@ async def main():
         url="http://127.0.0.1:8000/mcp",
         timeout=60,
     )
-    ollama_model = OpenAIChatModel(  # noqa
+    ollama_model = OpenAIChatModel(
         model_name=OLLAMA_MODEL,
         provider=OllamaProvider(base_url=f"{OLLAMA_URL}/v1"),
     )

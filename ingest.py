@@ -41,10 +41,7 @@ def chunk_text(text: str, max_chars: int = 800, overlap_chars: int = 150) -> lis
             if current:
                 chunks.append(current)
                 # Add overlap: take the last overlap_chars from the current chunk
-                if overlap_chars > 0:
-                    last_chunk = current[-overlap_chars:]
-                else:
-                    last_chunk = ""
+                last_chunk = current[-overlap_chars:] if overlap_chars > 0 else ""
             # Start new chunk with overlap
             current = (last_chunk + "\n" + p).strip() if last_chunk else p
 
@@ -62,7 +59,7 @@ def prepare_document_points(doc: Document, embed_model: SentenceTransformer) -> 
 
     vectors = embed_model.encode(chunks).tolist()
     points = []
-    for i, (chunk, vector) in enumerate(zip(chunks, vectors)):
+    for i, (chunk, vector) in enumerate(zip(chunks, vectors, strict=False)):
         point_id = str(uuid4())
         payload = {
             "document": chunk,
@@ -76,14 +73,14 @@ def prepare_document_points(doc: Document, embed_model: SentenceTransformer) -> 
                 "created_at": doc.created_at,
                 "updated_at": doc.updated_at,
                 "chunk_index": i,
-            }
+            },
         }
         points.append(PointStruct(id=point_id, vector={VECTOR_NAME: vector}, payload=payload))
         print(f"Prepared Point ID: {point_id} with payload keys: {list(payload.keys())}")
     return points
 
 
-def upsert_points(client: QdrantClient, collection_name: str, points: list[PointStruct]):
+def upsert_points(client: QdrantClient, collection_name: str, points: list[PointStruct]) -> None:
     print(f"Upserting {len(points)} points into collection '{collection_name}'")
     client.upsert(collection_name=collection_name, points=points)
     print("Upsert completed.")
