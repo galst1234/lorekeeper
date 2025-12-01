@@ -6,7 +6,10 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct
 from sentence_transformers import SentenceTransformer
 
+from config import VECTOR_NAME
+
 DocType = Literal["WikiPage", "Post", "Character"]
+
 
 @dataclasses.dataclass
 class Document:
@@ -55,7 +58,7 @@ def prepare_document_points(doc: Document, embed_model: SentenceTransformer) -> 
     print(f"Ingesting document ID: {doc.id}, Type: {doc.type}, Title: {doc.title}")
     chunks = chunk_text(doc.content)
     for i, chunk in enumerate(chunks):
-        print(f"Chunk {i+1}/{len(chunks)} (Length: {len(chunk)} chars):\n{chunk}\n")
+        print(f"Chunk {i + 1}/{len(chunks)} (Length: {len(chunk)} chars):\n{chunk}\n")
 
     vectors = embed_model.encode(chunks).tolist()
     points = []
@@ -75,7 +78,7 @@ def prepare_document_points(doc: Document, embed_model: SentenceTransformer) -> 
                 "chunk_index": i,
             }
         }
-        points.append(PointStruct(id=point_id, vector={"fast-all-minilm-l6-v2": vector}, payload=payload))
+        points.append(PointStruct(id=point_id, vector={VECTOR_NAME: vector}, payload=payload))
         print(f"Prepared Point ID: {point_id} with payload keys: {list(payload.keys())}")
     return points
 

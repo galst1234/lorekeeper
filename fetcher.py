@@ -1,15 +1,15 @@
 from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams
+from sentence_transformers import SentenceTransformer
 
 from auth import get_authenticated_session
-from config import BALDURS_GATE_CAMPAIGN_ID, QDRANT_COLLECTION_NAME, QDRANT_URL
+from config import CAMPAIGN_ID, QDRANT_COLLECTION_NAME, QDRANT_URL, VECTOR_NAME
 from ingest import Document, prepare_document_points, upsert_points
-from sentence_transformers import SentenceTransformer
 
 
 def main():
+    print("Initializing Qdrant client...")
     qdrant_client = QdrantClient(url=QDRANT_URL)
-
-    from qdrant_client.models import Distance, VectorParams
     print("Setting up Qdrant collection...")
     if qdrant_client.collection_exists(QDRANT_COLLECTION_NAME):
         qdrant_client.delete_collection(QDRANT_COLLECTION_NAME)
@@ -18,7 +18,7 @@ def main():
     qdrant_client.create_collection(
         collection_name=QDRANT_COLLECTION_NAME,
         vectors_config={
-            "fast-all-minilm-l6-v2": VectorParams(
+            VECTOR_NAME: VectorParams(
                 size=384,
                 distance=Distance.COSINE
             ),
@@ -28,7 +28,7 @@ def main():
 
     print("Setting up authenticated session...")
     session = get_authenticated_session()
-    url = f"https://api.obsidianportal.com/v1/campaigns/{BALDURS_GATE_CAMPAIGN_ID}/wikis.json"
+    url = f"https://api.obsidianportal.com/v1/campaigns/{CAMPAIGN_ID}/wikis.json"
     print(f"Fetching wiki pages from Obsidian Portal API: {url}")
     response = session.get(url)
     print(f"API response status: {response.status_code}")
