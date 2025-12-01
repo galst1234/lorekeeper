@@ -28,6 +28,7 @@ async def main() -> None:
         url="http://127.0.0.1:8000/mcp",
         timeout=60,
     )
+    # noinspection PyTypeChecker
     ollama_model = OpenAIChatModel(
         model_name=OLLAMA_MODEL,
         provider=OllamaProvider(base_url=f"{OLLAMA_URL}/v1"),
