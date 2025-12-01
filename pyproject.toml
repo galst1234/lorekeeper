@@ -5,13 +5,11 @@ description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
     "dotenv>=0.9.9",
-    "openai~=2.8",
-    "openai-agents~=0.6",
-    "mcp[cli]~=1.22",
     "qdrant-client~=1.16",
     "requests-oauthlib~=2.0",
     "sentence-transformers~=5.1",
     "requests~=2.32",
+    "pydantic-ai~=1.25",
 ]
 
 [dependency-groups]

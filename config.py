@@ -13,4 +13,4 @@ BALDURS_GATE_CAMPAIGN_ID = os.environ['BALDURS_GATE_CAMPAIGN_ID']
 QDRANT_URL = os.environ['QDRANT_URL']
 QDRANT_COLLECTION_NAME = os.environ['QDRANT_COLLECTION_NAME']
 OLLAMA_URL = os.environ['OLLAMA_URL']
-OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'phi3:mini')
+OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'llama3.1:8b-instruct-q4_K_M')
