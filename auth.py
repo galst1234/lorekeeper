@@ -17,7 +17,7 @@ class AccessToken(BaseModel):
 
 def _save_token(token: AccessToken) -> None:
     with open(TOKEN_PATH, 'w') as f:
-        json.dump(token.model_dump(), f)
+        json.dump(token.model_dump(by_alias=True), f)
 
 
 def _load_token() -> AccessToken | None:
