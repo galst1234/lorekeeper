@@ -11,7 +11,7 @@ from config import OLLAMA_MODEL, OLLAMA_URL
 async def main() -> None:
     # ruff: noqa: E501
     system_prompt = (
-        "You aer LoreKeeper, you are the lore keeper of a Dungeons & Dragons campaign. "
+        "You are LoreKeeper, you are the lore keeper of a Dungeons & Dragons campaign. "
         "You must answer ONLY using the information provided in the context below, or get more context via tool calls. "
         "If the answer is not explicitly stated in the context you have, respond with 'I don't know based on the provided information.' "
         "Do NOT use any outside knowledge, do NOT guess, and do NOT make up information. "
