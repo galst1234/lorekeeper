@@ -2,7 +2,7 @@ import dataclasses
 from typing import Literal
 from uuid import uuid4
 
-from qdrant_client import QdrantClient
+from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import PointStruct
 from sentence_transformers import SentenceTransformer
 
@@ -55,7 +55,7 @@ def prepare_document_points(doc: Document, embed_model: SentenceTransformer) -> 
     print(f"Ingesting document ID: {doc.id}, Type: {doc.type}, Title: {doc.title}")
     chunks = chunk_text(doc.content)
     for i, chunk in enumerate(chunks):
-        print(f"Chunk {i + 1}/{len(chunks)} (Length: {len(chunk)} chars):\n{chunk}\n")
+        print(f"Chunk {i + 1}/{len(chunks)} (Length: {len(chunk)} chars)")
 
     vectors = embed_model.encode(chunks).tolist()
     points = []
@@ -80,7 +80,7 @@ def prepare_document_points(doc: Document, embed_model: SentenceTransformer) -> 
     return points
 
 
-def upsert_points(client: QdrantClient, collection_name: str, points: list[PointStruct]) -> None:
+async def upsert_points(client: AsyncQdrantClient, collection_name: str, points: list[PointStruct]) -> None:
     print(f"Upserting {len(points)} points into collection '{collection_name}'")
-    client.upsert(collection_name=collection_name, points=points)
+    await client.upsert(collection_name=collection_name, points=points)
     print("Upsert completed.")

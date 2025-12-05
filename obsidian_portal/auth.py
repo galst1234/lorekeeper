@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 
@@ -15,17 +16,8 @@ class AccessToken(BaseModel):
     secret: str = Field(validation_alias="oauth_token_secret")
 
 
-def _save_token(token: AccessToken) -> None:
-    with open(TOKEN_PATH, "w", encoding="utf-8") as f:
-        json.dump(token.model_dump(by_alias=True), f)
-
-
-def _load_token() -> AccessToken | None:
-    if os.path.exists(TOKEN_PATH):
-        with open(TOKEN_PATH, encoding="utf-8") as f:
-            obj = json.load(f)
-        return AccessToken.model_validate(obj)
-    return None
+async def get_authenticated_session_async() -> OAuth1Session:
+    return await asyncio.to_thread(get_authenticated_session)
 
 
 def get_authenticated_session() -> OAuth1Session:
@@ -44,6 +36,19 @@ def get_authenticated_session() -> OAuth1Session:
     )
     session.headers.update({"User-Agent": USER_AGENT})
     return session
+
+
+def _load_token() -> AccessToken | None:
+    if os.path.exists(TOKEN_PATH):
+        with open(TOKEN_PATH, encoding="utf-8") as f:
+            obj = json.load(f)
+        return AccessToken.model_validate(obj)
+    return None
+
+
+def _save_token(token: AccessToken) -> None:
+    with open(TOKEN_PATH, "w", encoding="utf-8") as f:
+        json.dump(token.model_dump(by_alias=True), f)
 
 
 def _get_request_token() -> AccessToken:
