@@ -15,6 +15,8 @@ mcp = FastMCP(
     instructions="""
         This MCP provides tools to fetch wiki pages and character information from Obsidian Portal campaigns.
         Use the provided tools to retrieve the necessary data based on campaign and page/character IDs.
+        The IDs are NOT the names, titles, or slugs, but the unique identifiers assigned by Obsidian Portal,
+         which are a 32 character hex strings.
     """,
 )
 

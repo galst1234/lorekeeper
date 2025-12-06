@@ -27,9 +27,16 @@ class Document(abc.ABC, BaseModel):
         pass
 
     @property
-    @abc.abstractmethod
     def metadata(self) -> dict[str, Any]:
-        pass
+        return {
+            "id": self.id,
+            "type": self.type,
+            "source_url": self.source_url,
+            "tags": self.tags,
+            "gm_only": self.gm_only,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
 
 
 class Page(Document):
@@ -43,16 +50,11 @@ class Page(Document):
 
     @property
     def metadata(self) -> dict[str, Any]:
-        return {
-            "doc_id": self.id,
-            "type": self.type,
+        metadata = super().metadata.copy()
+        metadata.update({
             "title": self.title,
-            "source_url": self.source_url,
-            "tags": self.tags,
-            "gm_only": self.gm_only,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-        }
+        })
+        return metadata
 
 
 class Character(Document):
@@ -69,17 +71,12 @@ class Character(Document):
 
     @property
     def metadata(self) -> dict[str, Any]:
-        return {
-            "doc_id": self.id,
-            "type": self.type,
+        metadata = super().metadata.copy()
+        metadata.update({
             "name": self.name,
-            "source_url": self.source_url,
-            "tags": self.tags,
             "is_player_character": self.is_player_character,
-            "gm_only": self.gm_only,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-        }
+        })
+        return metadata
 
 
 def chunk_text(text: str, max_chars: int = 800, overlap_chars: int = 150) -> list[str]:
