@@ -1,5 +1,6 @@
+import abc
 import dataclasses
-from typing import Literal
+from typing import Any, Literal
 from uuid import uuid4
 
 from qdrant_client import AsyncQdrantClient
@@ -12,16 +13,73 @@ DocType = Literal["WikiPage", "Post", "Character"]
 
 
 @dataclasses.dataclass
-class Document:
+class Document(abc.ABC):
     id: str
     type: DocType
-    title: str
-    content: str
     source_url: str
     tags: list[str]
     gm_only: bool
     created_at: str
     updated_at: str
+
+    @property
+    @abc.abstractmethod
+    def content(self) -> str:
+        pass
+
+    @property
+    @abc.abstractmethod
+    def metadata(self) -> dict[str, Any]:
+        pass
+
+
+@dataclasses.dataclass
+class Page(Document):
+    title: str
+    body: str
+
+    @property
+    def content(self) -> str:
+        return self.body
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        return {
+            "doc_id": self.id,
+            "type": self.type,
+            "title": self.title,
+            "source_url": self.source_url,
+            "tags": self.tags,
+            "gm_only": self.gm_only,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+
+@dataclasses.dataclass
+class Character(Document):
+    name: str
+    description: str
+    bio: str
+    is_player_character: bool
+
+    @property
+    def content(self) -> str:
+        return f"{self.name}\n\n{self.description}\n\n{self.bio}"
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        return {
+            "doc_id": self.id,
+            "type": self.type,
+            "name": self.name,
+            "source_url": self.source_url,
+            "tags": self.tags,
+            "is_player_character": self.is_player_character,
+            "gm_only": self.gm_only,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
 
 
 def chunk_text(text: str, max_chars: int = 800, overlap_chars: int = 150) -> list[str]:
@@ -52,7 +110,7 @@ def chunk_text(text: str, max_chars: int = 800, overlap_chars: int = 150) -> lis
 
 
 def prepare_document_points(doc: Document, embed_model: SentenceTransformer) -> list[PointStruct]:
-    print(f"Ingesting document ID: {doc.id}, Type: {doc.type}, Title: {doc.title}")
+    print(f"Ingesting document ID: {doc.id}, Type: {doc.type}")
     chunks = chunk_text(doc.content)
     for i, chunk in enumerate(chunks):
         print(f"Chunk {i + 1}/{len(chunks)} (Length: {len(chunk)} chars)")
@@ -61,19 +119,14 @@ def prepare_document_points(doc: Document, embed_model: SentenceTransformer) -> 
     points = []
     for i, (chunk, vector) in enumerate(zip(chunks, vectors, strict=False)):
         point_id = str(uuid4())
+        metadata = doc.metadata.copy()
+        metadata.update({
+            "chunk_index": i,
+            "total_chunks": len(chunks),
+        })
         payload = {
             "document": chunk,
-            "metadata": {
-                "doc_id": doc.id,
-                "type": doc.type,
-                "title": doc.title,
-                "source_url": doc.source_url,
-                "tags": doc.tags,
-                "gm_only": doc.gm_only,
-                "created_at": doc.created_at,
-                "updated_at": doc.updated_at,
-                "chunk_index": i,
-            },
+            "metadata": doc.metadata,
         }
         points.append(PointStruct(id=point_id, vector={VECTOR_NAME: vector}, payload=payload))
         print(f"Prepared Point ID: {point_id} with payload keys: {list(payload.keys())}")

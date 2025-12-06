@@ -7,7 +7,7 @@ from sentence_transformers import SentenceTransformer
 
 from config import CAMPAIGN_ID, QDRANT_COLLECTION_NAME, QDRANT_URL, VECTOR_NAME
 from obsidian_portal.auth import get_authenticated_session_async
-from obsidian_portal.ingest import Document, prepare_document_points, upsert_points
+from obsidian_portal.ingest import Character, Document, Page, prepare_document_points, upsert_points
 
 
 async def main() -> None:
@@ -15,6 +15,7 @@ async def main() -> None:
     print("Setting up authenticated session...")
     session = await get_authenticated_session_async()
     docs = await fetch_wiki_pages(session, CAMPAIGN_ID)
+    docs += await fetch_characters(session, CAMPAIGN_ID)
     embed_model = await _load_embedding_model()
     await _ingest_documents(docs, embed_model, qdrant_client)
 
@@ -46,12 +47,12 @@ async def fetch_wiki_pages(session: OAuth1Session, campaign_id: str) -> list[Doc
     print(f"Fetched {len(raw)} wiki pages.")
 
     print("Transforming and ingesting documents...")
-    docs = [
-        Document(
+    docs: list[Document] = [
+        Page(
             id=item["id"],
             type=item["type"],
             title=item["name"],
-            content=item["body"],
+            body=item["body"],
             source_url=item["wiki_page_url"],
             tags=item["tags"],
             gm_only=item["is_game_master_only"],
@@ -61,6 +62,41 @@ async def fetch_wiki_pages(session: OAuth1Session, campaign_id: str) -> list[Doc
         for item in raw
     ]
     return docs
+
+
+async def fetch_characters(session: OAuth1Session, campaign_id: str) -> list[Document]:
+    characters_url = f"https://api.obsidianportal.com/v1/campaigns/{campaign_id}/characters.json"
+    print(f"Fetching characters from Obsidian Portal API: {characters_url}")
+    characters_response = await asyncio.to_thread(session.get, characters_url)
+    print(f"API response status: {characters_response.status_code}")
+    characters_raw = await asyncio.to_thread(characters_response.json)
+    print(f"Fetched {len(characters_raw)} characters.")
+
+    return [
+        await _fetch_character(session, campaign_id, character_raw["id"])
+        for character_raw in characters_raw
+    ]
+
+
+async def _fetch_character(session: OAuth1Session, campaign_id: str, character_id: str) -> Character:
+    url = f"https://api.obsidianportal.com/v1/campaigns/{campaign_id}/characters/{character_id}.json"
+    print(f"Fetching character {character_id} from Obsidian Portal API: {url}")
+    response = await asyncio.to_thread(session.get, url)
+    print(f"API response status: {response.status_code}")
+    raw = await asyncio.to_thread(response.json)
+    return Character(
+        id=raw["id"],
+        type="Character",
+        name=raw["name"],
+        description=raw["description"],
+        bio=raw["bio"],
+        source_url=raw["character_url"],
+        tags=raw["tags"],
+        is_player_character=raw["is_player_character"],
+        gm_only=raw["is_game_master_only"],
+        created_at=raw["created_at"],
+        updated_at=raw["updated_at"],
+    )
 
 
 async def _load_embedding_model() -> SentenceTransformer:
