@@ -1,8 +1,8 @@
 import abc
-import dataclasses
 from typing import Any, Literal
 from uuid import uuid4
 
+from pydantic import BaseModel, Field
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import PointStruct
 from sentence_transformers import SentenceTransformer
@@ -12,13 +12,12 @@ from config import VECTOR_NAME
 DocType = Literal["WikiPage", "Post", "Character"]
 
 
-@dataclasses.dataclass
-class Document(abc.ABC):
+class Document(abc.ABC, BaseModel):
     id: str
     type: DocType
     source_url: str
     tags: list[str]
-    gm_only: bool
+    gm_only: bool = Field(validation_alias="is_game_master_only")
     created_at: str
     updated_at: str
 
@@ -33,10 +32,10 @@ class Document(abc.ABC):
         pass
 
 
-@dataclasses.dataclass
 class Page(Document):
-    title: str
+    title: str = Field(validation_alias="name")
     body: str
+    source_url: str = Field(validation_alias="wiki_page_url")
 
     @property
     def content(self) -> str:
@@ -56,12 +55,13 @@ class Page(Document):
         }
 
 
-@dataclasses.dataclass
 class Character(Document):
     name: str
     description: str
     bio: str
     is_player_character: bool
+    source_url: str = Field(validation_alias="character_url")
+    type: DocType = "Character"
 
     @property
     def content(self) -> str:
