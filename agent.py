@@ -12,6 +12,9 @@ from pydantic_ai.providers.ollama import OllamaProvider
 
 from config import CAMPAIGN_ID, GROQ_API_KEY, GROQ_MODEL, OLLAMA_MODEL, OLLAMA_URL
 
+MAX_HISTORY_MESSAGES = 20
+
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -66,6 +69,7 @@ async def main(local: bool = False) -> None:
     print("Agent ready. Type your question (or 'exit' to quit):")
     user_input = input("User: ").strip()
     history = None
+
     while user_input.lower() != "exit":
         if not user_input:
             user_input = input("User: ").strip()
@@ -74,9 +78,14 @@ async def main(local: bool = False) -> None:
         try:
             result = await agent.run(
                 user_prompt=user_input,
-                message_history=history,
+                message_history=(
+                    history[-MAX_HISTORY_MESSAGES:] if history and len(history) > MAX_HISTORY_MESSAGES else history),
             )
             history = result.all_messages()
+
+            if hasattr(result, "usage"):
+                logger.info(f"Token usage: {result.usage()}")
+
             logger.debug(f"Agent interaction:\n{result.all_messages()}")
 
             print(f"Agent: {result.output}\n")
