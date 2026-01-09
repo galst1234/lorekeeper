@@ -17,6 +17,7 @@ dependencies = [
     "pydantic-ai~=1.25",
     "fastmcp~=2.13",
     "pydantic~=2.12",
+    "mcp-server-qdrant~=0.8.0",
 ]
 
 [dependency-groups]

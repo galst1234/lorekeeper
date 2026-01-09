@@ -1,9 +1,7 @@
 import asyncio
 import logging
 
-from pydantic_ai import (
-    Agent,
-)
+from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.models.groq import GroqModel
 from pydantic_ai.models.openai import OpenAIChatModel

@@ -123,7 +123,7 @@ def prepare_document_points(doc: Document, embed_model: SentenceTransformer) -> 
         })
         payload = {
             "document": chunk,
-            "metadata": doc.metadata,
+            "metadata": metadata,
         }
         points.append(PointStruct(id=point_id, vector={VECTOR_NAME: vector}, payload=payload))
         print(f"Prepared Point ID: {point_id} with payload keys: {list(payload.keys())}")
