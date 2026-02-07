@@ -14,6 +14,80 @@ from mcp_server_qdrant.settings import (
 from pydantic import Field
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 
+# ---------------------------------------------------------------------------
+# Tool descriptions & server instructions
+# ---------------------------------------------------------------------------
+
+TOOL_FIND_DESCRIPTION = (
+    "Semantic search over D&D campaign lore stored in Qdrant (session summaries, "
+    "wiki pages, characters). Use this as the FIRST step when answering any campaign "
+    "question.\n\n"
+    "Returns <entry> elements each containing:\n"
+    "  - <content>: the matching text chunk\n"
+    "  - <metadata>: JSON with these fields:\n"
+    "      id           - document ID (32-char hex string, used by other tools)\n"
+    "      type         - WikiPage | Post | Character\n"
+    "      chunk_index  - position of this chunk within the document\n"
+    "      total_chunks - how many chunks the document has\n"
+    "      title        - (WikiPage only) page title\n"
+    "      name         - (Character only) character name\n"
+    "      source_url, tags, gm_only, created_at, updated_at\n\n"
+    "After reviewing results, use the metadata to chain into other tools:\n"
+    "  - qdrant-expand-context(document_id=metadata.id, chunk_index=metadata.chunk_index) "
+    "to fetch surrounding chunks from the same document.\n"
+    "  - qdrant-get-document-chunks(document_id=metadata.id) to fetch the entire document."
+)
+
+TOOL_GET_CHUNK_DESCRIPTION = (
+    "Fetch a single chunk by its Qdrant point UUID. Use this when you already have a "
+    "point_id from a previous qdrant-expand-context or qdrant-get-document-chunks "
+    "result.\n\n"
+    "NOTE: qdrant-find results do NOT include point_ids, so you cannot chain "
+    "qdrant-find -> qdrant-get-chunk directly. Use qdrant-expand-context or "
+    "qdrant-get-document-chunks first to obtain point_ids."
+)
+
+TOOL_EXPAND_CONTEXT_DESCRIPTION = (
+    "Retrieve adjacent chunks from the same document to expand context around a "
+    "known chunk. Use this AFTER qdrant-find when a result is relevant but you "
+    "need more surrounding text.\n\n"
+    "Typical workflow:\n"
+    "  1. qdrant-find -> get matching chunks with metadata\n"
+    "  2. Pick a relevant result and note its metadata.id and metadata.chunk_index\n"
+    "  3. qdrant-expand-context(document_id=<metadata.id>, chunk_index=<metadata.chunk_index>, "
+    "before=N, after=N)\n\n"
+    "Parameters:\n"
+    "  - document_id: the 'id' field from metadata (32-char hex string)\n"
+    "  - chunk_index: the 'chunk_index' field from metadata\n"
+    "  - before: number of preceding chunks to fetch (default 1, set 0 to skip)\n"
+    "  - after: number of following chunks to fetch (default 1, set 0 to skip)\n\n"
+    "This is more efficient than multiple qdrant-find queries when you need "
+    "contiguous text from a single document."
+)
+
+TOOL_GET_DOCUMENT_CHUNKS_DESCRIPTION = (
+    "Retrieve ALL chunks for an entire document, ordered by chunk_index. Use this "
+    "when you need the complete text of a document (e.g. a full wiki page or "
+    "character bio).\n\n"
+    "Parameters:\n"
+    "  - document_id: the 'id' field from metadata (32-char hex string). This is "
+    "the document's own ID, NOT the campaign ID.\n\n"
+    "Prefer qdrant-expand-context when you only need a few neighboring chunks - "
+    "this tool fetches everything and may return a large amount of text."
+)
+
+SERVER_INSTRUCTIONS = (
+    "Retrieval workflow for campaign lore:\n"
+    "1. Start with qdrant-find to semantically search for relevant chunks.\n"
+    "2. Inspect the metadata of each result (especially id, chunk_index, type).\n"
+    "3. Use qdrant-expand-context to fetch surrounding chunks when a result is "
+    "relevant but incomplete.\n"
+    "4. Use qdrant-get-document-chunks to retrieve a full document when needed.\n"
+    "5. Cross-reference information via additional qdrant-find queries with "
+    "different search terms.\n"
+    "Always gather sufficient context before answering."
+)
+
 
 class ExtendedQdrantMCPServer(QdrantMCPServer):
     """Extended Qdrant MCP Server with additional tools for chunk retrieval and context expansion."""
@@ -225,32 +299,26 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
             return formatted_results
 
         # Register the extended tools
-        self.tool(get_chunk, name="qdrant-get-chunk", description="Retrieve a specific chunk by its point ID")
+        self.tool(get_chunk, name="qdrant-get-chunk", description=TOOL_GET_CHUNK_DESCRIPTION)
         self.tool(
             expand_context,
             name="qdrant-expand-context",
-            description="Expand context by retrieving adjacent chunks from the same document",
+            description=TOOL_EXPAND_CONTEXT_DESCRIPTION,
         )
         self.tool(
             get_document_chunks,
             name="qdrant-get-document-chunks",
-            description="Retrieve all chunks for a specific document",
+            description=TOOL_GET_DOCUMENT_CHUNKS_DESCRIPTION,
         )
 
 
 # Create the server instance
 mcp = ExtendedQdrantMCPServer(
-    tool_settings=ToolSettings(),
+    tool_settings=ToolSettings(TOOL_FIND_DESCRIPTION=TOOL_FIND_DESCRIPTION),
     qdrant_settings=QdrantSettings(),
     embedding_provider_settings=EmbeddingProviderSettings(),
     name="mcp-server-qdrant-extended",
-    instructions="""
-        Extended Qdrant MCP server with additional retrieval capabilities.
-        Provides semantic search, storage, and advanced operations like:
-        - Fetching specific chunks by point ID
-        - Expanding context by retrieving adjacent chunks
-        - Retrieving all chunks from a document
-    """,
+    instructions=SERVER_INSTRUCTIONS,
 )
 
 if __name__ == "__main__":
