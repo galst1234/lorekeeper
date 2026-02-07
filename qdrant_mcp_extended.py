@@ -62,7 +62,8 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
 
         async def expand_context(  # noqa: PLR0917
             ctx: Context,
-            point_id: Annotated[str, Field(description="The UUID of the current chunk")],
+            document_id: Annotated[str, Field(description="The document ID from metadata (32-char hex string)")],
+            chunk_index: Annotated[int, Field(description="The chunk index of the current chunk")],
             before: Annotated[
                 int, Field(description="Number of chunks to retrieve before the current chunk"),
             ] = 1,
@@ -74,35 +75,35 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
             Expand context by retrieving adjacent chunks from the same document.
 
             :param ctx: The context for the request.
-            :param point_id: The UUID of the current chunk.
+            :param document_id: The document ID from the chunk's metadata.
+            :param chunk_index: The chunk index of the current chunk.
             :param before: Number of chunks to retrieve before the current chunk (default: 1). Set to 0 to skip.
             :param after: Number of chunks to retrieve after the current chunk (default: 1). Set to 0 to skip.
             :return: List of adjacent chunks including the original, ordered by chunk_index.
             """
-            await ctx.debug(f"Expanding context for point_id: {point_id} with before={before}, after={after}")
+            await ctx.debug(f"Expanding context for document_id: {document_id}, chunk_index: {chunk_index} with "
+                            f"before={before}, after={after}")
 
             client = self.qdrant_connector._client
 
-            # Get the current chunk to find its document_id and chunk_index
-            current_points = await client.retrieve(
+            # Get the current chunk to find total_chunks
+            search_results = await client.scroll(
                 collection_name=self.qdrant_settings.collection_name,
-                ids=[point_id],
+                scroll_filter=Filter(
+                    must=[
+                        FieldCondition(key="metadata.id", match=MatchValue(value=document_id)),
+                        FieldCondition(key="metadata.chunk_index", match=MatchValue(value=chunk_index)),
+                    ],
+                ),
+                limit=1,
             )
 
-            if not current_points:
-                return [f"<error>Point {point_id} not found</error>"]
+            if not search_results[0]:
+                return [f"<error>Chunk not found for document {document_id} at index {chunk_index}</error>"]
 
-            current = current_points[0]
+            current = search_results[0][0]
             metadata = current.payload.get("metadata", {})
-            document_id = metadata.get("id")
-            chunk_index = metadata.get("chunk_index")
             total_chunks = metadata.get("total_chunks")
-
-            if document_id is None or chunk_index is None:
-                return [
-                    "<error>Missing document_id or chunk_index in metadata. "
-                    "This chunk may not support context expansion.</error>",
-                ]
 
             # Calculate range
             start_index = max(0, chunk_index - before)
