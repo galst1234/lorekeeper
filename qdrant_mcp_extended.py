@@ -14,6 +14,8 @@ from mcp_server_qdrant.settings import (
 from pydantic import Field
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 
+import config  # noqa: F401 - must run before EmbeddingProviderSettings reads env
+
 # ---------------------------------------------------------------------------
 # Tool descriptions & server instructions
 # ---------------------------------------------------------------------------

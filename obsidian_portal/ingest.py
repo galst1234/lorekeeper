@@ -2,10 +2,10 @@ import abc
 from typing import Any, Literal
 from uuid import uuid4
 
+from fastembed import TextEmbedding
 from pydantic import BaseModel, Field
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import PointStruct
-from sentence_transformers import SentenceTransformer
 
 from config import VECTOR_NAME
 
@@ -106,13 +106,13 @@ def chunk_text(text: str, max_chars: int = 800, overlap_chars: int = 150) -> lis
     return chunks
 
 
-def prepare_document_points(doc: Document, embed_model: SentenceTransformer) -> list[PointStruct]:
+def prepare_document_points(doc: Document, embed_model: TextEmbedding) -> list[PointStruct]:
     print(f"Ingesting document ID: {doc.id}, Type: {doc.type}")
     chunks = chunk_text(doc.content)
     for i, chunk in enumerate(chunks):
         print(f"Chunk {i + 1}/{len(chunks)} (Length: {len(chunk)} chars)")
 
-    vectors = embed_model.encode(chunks).tolist()
+    vectors = list(embed_model.embed(chunks))
     points = []
     for i, (chunk, vector) in enumerate(zip(chunks, vectors, strict=False)):
         point_id = str(uuid4())
@@ -125,7 +125,7 @@ def prepare_document_points(doc: Document, embed_model: SentenceTransformer) -> 
             "document": chunk,
             "metadata": metadata,
         }
-        points.append(PointStruct(id=point_id, vector={VECTOR_NAME: vector}, payload=payload))
+        points.append(PointStruct(id=point_id, vector={VECTOR_NAME: vector.tolist()}, payload=payload))
         print(f"Prepared Point ID: {point_id} with payload keys: {list(payload.keys())}")
     return points
 

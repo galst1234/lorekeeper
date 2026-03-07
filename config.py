@@ -11,7 +11,7 @@ ACCESS_TOKEN_URL = os.environ["ACCESS_TOKEN_URL"]
 AUTHORIZE_URL = os.environ["AUTHORIZE_URL"]
 CAMPAIGN_ID = os.environ["CAMPAIGN_ID"]
 QDRANT_URL = os.environ["QDRANT_URL"]
-QDRANT_COLLECTION_NAME = os.environ["QDRANT_COLLECTION_NAME"]
+COLLECTION_NAME = os.environ["COLLECTION_NAME"]
 OLLAMA_URL = os.environ["OLLAMA_URL"]
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b-instruct-q4_K_M")
 OPENROUTER_URL = os.environ["OPENROUTER_URL"]
@@ -20,5 +20,8 @@ OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-
 GROQ_API_URL = os.environ["GROQ_API_URL"]
 GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5-mini-2025-08-07")
 
-VECTOR_NAME = "fast-all-minilm-l6-v2"
+
+VECTOR_NAME = "fast-bge-base-en-v1.5"

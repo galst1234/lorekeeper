@@ -3,14 +3,29 @@ import logging
 
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
-from pydantic_ai.models.groq import GroqModel
+from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
 from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.groq import GroqProvider
 from pydantic_ai.providers.ollama import OllamaProvider
+from pydantic_ai.providers.openai import OpenAIProvider
 
-from config import CAMPAIGN_ID, GROQ_API_KEY, GROQ_MODEL, OLLAMA_MODEL, OLLAMA_URL
+from config import CAMPAIGN_ID, OLLAMA_MODEL, OLLAMA_URL, OPENAI_API_KEY, OPENAI_MODEL
 
 MAX_HISTORY_MESSAGES = 20
+
+
+def _strip_tool_messages(messages: list) -> list:
+    """Keep only user prompts and final text responses — discard tool calls/returns."""
+    clean = []
+    for msg in messages:
+        if isinstance(msg, ModelRequest):
+            user_parts = [p for p in msg.parts if isinstance(p, UserPromptPart)]
+            if user_parts:
+                clean.append(ModelRequest(parts=user_parts))
+        elif isinstance(msg, ModelResponse):
+            text_parts = [p for p in msg.parts if isinstance(p, TextPart)]
+            if text_parts:
+                clean.append(ModelResponse(parts=text_parts, model_name=msg.model_name, timestamp=msg.timestamp))
+    return clean
 
 
 logging.basicConfig(
@@ -59,12 +74,9 @@ async def main(local: bool = False) -> None:
             provider=OllamaProvider(base_url=f"{OLLAMA_URL}/v1"),
         )
     else:
-        # noinspection PyTypeChecker
-        model = GroqModel(  # type: ignore
-            model_name=GROQ_MODEL,
-            provider=GroqProvider(
-                api_key=GROQ_API_KEY,
-            ),
+        model = OpenAIChatModel(
+            model_name=OPENAI_MODEL,
+            provider=OpenAIProvider(api_key=OPENAI_API_KEY),
         )
 
     agent = Agent(
@@ -87,7 +99,7 @@ async def main(local: bool = False) -> None:
                 message_history=(
                     history[-MAX_HISTORY_MESSAGES:] if history and len(history) > MAX_HISTORY_MESSAGES else history),
             )
-            history = result.all_messages()
+            history = _strip_tool_messages(result.all_messages())
 
             if hasattr(result, "usage"):
                 logger.info(f"Token usage: {result.usage()}")

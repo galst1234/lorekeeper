@@ -10,14 +10,15 @@ license = {text = "MIT"}
 requires-python = ">=3.13"
 dependencies = [
     "dotenv>=0.9.9",
-    "qdrant-client~=1.16",
+    "qdrant-client~=1.17",
     "requests-oauthlib~=2.0",
-    "sentence-transformers~=5.1",
+    "openai~=2.26",
     "requests~=2.32",
-    "pydantic-ai~=1.25",
-    "fastmcp~=2.13",
+    "pydantic-ai~=1.56",
+    "fastmcp~=3.1",
     "pydantic~=2.12",
-    "mcp-server-qdrant~=0.8.0",
+    "mcp-server-qdrant~=0.8",
+    "fastembed>=0.4",
 ]
 
 [dependency-groups]

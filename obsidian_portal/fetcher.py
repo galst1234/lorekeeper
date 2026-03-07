@@ -1,11 +1,11 @@
 import asyncio
 
+from fastembed import TextEmbedding
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance, VectorParams
 from requests_oauthlib import OAuth1Session
-from sentence_transformers import SentenceTransformer
 
-from config import CAMPAIGN_ID, QDRANT_COLLECTION_NAME, QDRANT_URL, VECTOR_NAME
+from config import CAMPAIGN_ID, COLLECTION_NAME, QDRANT_URL, VECTOR_NAME
 from obsidian_portal.auth import get_authenticated_session_async
 from obsidian_portal.ingest import Character, Document, Page, prepare_document_points, upsert_points
 
@@ -17,7 +17,7 @@ async def main() -> None:
     docs: list[Document] = []
     docs += await fetch_wiki_pages(session, CAMPAIGN_ID)
     docs += await fetch_characters(session, CAMPAIGN_ID, enrich=True)
-    embed_model = await _load_embedding_model()
+    embed_model = _load_embedding_model()
     await _ingest_documents(docs, embed_model, qdrant_client)
 
 
@@ -25,14 +25,14 @@ async def _setup_qdrant() -> AsyncQdrantClient:
     print("Initializing Qdrant client...")
     qdrant_client = AsyncQdrantClient(url=QDRANT_URL)
     print("Setting up Qdrant collection...")
-    if await qdrant_client.collection_exists(QDRANT_COLLECTION_NAME):
-        await qdrant_client.delete_collection(QDRANT_COLLECTION_NAME)
+    if await qdrant_client.collection_exists(COLLECTION_NAME):
+        await qdrant_client.delete_collection(COLLECTION_NAME)
         print("Deleted existing collection.")
 
     await qdrant_client.create_collection(
-        collection_name=QDRANT_COLLECTION_NAME,
+        collection_name=COLLECTION_NAME,
         vectors_config={
-            VECTOR_NAME: VectorParams(size=384, distance=Distance.COSINE),
+            VECTOR_NAME: VectorParams(size=768, distance=Distance.COSINE),
         },
     )
     print("Qdrant collection is ready.")
@@ -85,21 +85,20 @@ async def fetch_character(session: OAuth1Session, campaign_id: str, character_id
     return Character.model_validate(raw)
 
 
-async def _load_embedding_model() -> SentenceTransformer:
-    print("Setting up embedding model...")
-    embed_model = await asyncio.to_thread(SentenceTransformer, "sentence-transformers/all-MiniLM-L6-v2")
-    return embed_model
+def _load_embedding_model() -> TextEmbedding:
+    print("Loading fastembed model BAAI/bge-base-en-v1.5...")
+    return TextEmbedding("BAAI/bge-base-en-v1.5")
 
 
 async def _ingest_documents(
         docs: list[Document],
-        embed_model: SentenceTransformer,
+        embed_model: TextEmbedding,
         qdrant_client: AsyncQdrantClient,
 ) -> None:
     for i, doc in enumerate(docs):
         print(f"Processing document {i + 1}")
         points = await asyncio.to_thread(prepare_document_points, doc, embed_model)
-        await upsert_points(qdrant_client, collection_name=QDRANT_COLLECTION_NAME, points=points)
+        await upsert_points(qdrant_client, collection_name=COLLECTION_NAME, points=points)
 
 
 if __name__ == "__main__":
