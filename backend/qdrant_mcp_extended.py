@@ -119,9 +119,11 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
             await ctx.debug(f"Retrieving chunk with point_id: {point_id}")
 
             client = self.qdrant_connector._client
+            collection_name = self.qdrant_settings.collection_name
+            assert collection_name is not None
 
             points = await client.retrieve(
-                collection_name=self.qdrant_settings.collection_name,
+                collection_name=collection_name,
                 ids=[point_id],
             )
 
@@ -129,22 +131,27 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
                 return f"<error>Point {point_id} not found</error>"
 
             point = points[0]
+            assert point.payload is not None
             content = point.payload.get("document", "")
             metadata = point.payload.get("metadata", {})
             metadata_str = json.dumps(metadata) if metadata else ""
 
-            return (f"<chunk><point_id>{point_id}</point_id><content>{content}</content>"
-                    f"<metadata>{metadata_str}</metadata></chunk>")
+            return (
+                f"<chunk><point_id>{point_id}</point_id><content>{content}</content>"
+                f"<metadata>{metadata_str}</metadata></chunk>"
+            )
 
         async def expand_context(  # noqa: PLR0917
             ctx: Context,
             document_id: Annotated[str, Field(description="The document ID from metadata (32-char hex string)")],
             chunk_index: Annotated[int, Field(description="The chunk index of the current chunk")],
             before: Annotated[
-                int, Field(description="Number of chunks to retrieve before the current chunk"),
+                int,
+                Field(description="Number of chunks to retrieve before the current chunk"),
             ] = 1,
             after: Annotated[
-                int, Field(description="Number of chunks to retrieve after the current chunk"),
+                int,
+                Field(description="Number of chunks to retrieve after the current chunk"),
             ] = 1,
         ) -> list[str]:
             """
@@ -157,14 +164,18 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
             :param after: Number of chunks to retrieve after the current chunk (default: 1). Set to 0 to skip.
             :return: List of adjacent chunks including the original, ordered by chunk_index.
             """
-            await ctx.debug(f"Expanding context for document_id: {document_id}, chunk_index: {chunk_index} with "
-                            f"before={before}, after={after}")
+            await ctx.debug(
+                f"Expanding context for document_id: {document_id}, chunk_index: {chunk_index} with "
+                f"before={before}, after={after}",
+            )
 
             client = self.qdrant_connector._client
+            collection_name = self.qdrant_settings.collection_name
+            assert collection_name is not None
 
             # Get the current chunk to find total_chunks
             search_results = await client.scroll(
-                collection_name=self.qdrant_settings.collection_name,
+                collection_name=collection_name,
                 scroll_filter=Filter(
                     must=[
                         FieldCondition(key="metadata.id", match=MatchValue(value=document_id)),
@@ -178,6 +189,7 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
                 return [f"<error>Chunk not found for document {document_id} at index {chunk_index}</error>"]
 
             current = search_results[0][0]
+            assert current.payload is not None
             metadata = current.payload.get("metadata", {})
             total_chunks = metadata.get("total_chunks")
 
@@ -196,7 +208,7 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
             results = []
             for idx in range(start_index, end_index + 1):
                 search_results = await client.scroll(
-                    collection_name=self.qdrant_settings.collection_name,
+                    collection_name=collection_name,
                     scroll_filter=Filter(
                         must=[
                             FieldCondition(key="metadata.id", match=MatchValue(value=document_id)),
@@ -208,6 +220,7 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
 
                 if search_results[0]:  # search_results is tuple (points, next_offset)
                     for point in search_results[0]:
+                        assert point.payload is not None
                         content = point.payload.get("document", "")
                         metadata = point.payload.get("metadata", {})
                         metadata_str = json.dumps(metadata) if metadata else ""
@@ -239,7 +252,8 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
         async def get_document_chunks(
             ctx: Context,
             document_id: Annotated[
-                str, Field(description="The document ID (32-char hex string from Obsidian Portal)"),
+                str,
+                Field(description="The document ID (32-char hex string from Obsidian Portal)"),
             ],
         ) -> list[str]:
             """
@@ -252,6 +266,8 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
             await ctx.debug(f"Retrieving all chunks for document_id: {document_id}")
 
             client = self.qdrant_connector._client
+            collection_name = self.qdrant_settings.collection_name
+            assert collection_name is not None
 
             # Scroll through all points with matching document_id
             results = []
@@ -259,7 +275,7 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
 
             while True:
                 search_results, next_offset = await client.scroll(
-                    collection_name=self.qdrant_settings.collection_name,
+                    collection_name=collection_name,
                     scroll_filter=Filter(
                         must=[
                             FieldCondition(key="metadata.id", match=MatchValue(value=document_id)),
@@ -270,6 +286,7 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
                 )
 
                 for point in search_results:
+                    assert point.payload is not None
                     content = point.payload.get("document", "")
                     metadata = point.payload.get("metadata", {})
 
@@ -316,7 +333,7 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
 
 # Create the server instance
 mcp = ExtendedQdrantMCPServer(
-    tool_settings=ToolSettings(TOOL_FIND_DESCRIPTION=TOOL_FIND_DESCRIPTION),
+    tool_settings=ToolSettings(tool_find_description=TOOL_FIND_DESCRIPTION),
     qdrant_settings=QdrantSettings(),
     embedding_provider_settings=EmbeddingProviderSettings(),
     name="mcp-server-qdrant-extended",

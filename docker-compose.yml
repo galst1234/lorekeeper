@@ -1,0 +1,39 @@
+x-restart: &restart
+  restart: always
+
+services:
+  qdrant-mcp:
+    <<: *restart
+    build: ./backend
+    command: python qdrant_mcp_extended.py
+    env_file: ./backend/.env
+    volumes:
+      - fastembed-cache:/root/.cache/fastembed
+
+  obsidian-mcp:
+    <<: *restart
+    build: ./backend
+    command: python -m obsidian_portal.mcp_server
+    env_file: ./backend/.env
+
+  api:
+    <<: *restart
+    build: ./backend
+    command: uvicorn api:app --host 0.0.0.0 --port 8001
+    env_file: ./backend/.env
+    environment:
+      QDRANT_MCP_URL: http://qdrant-mcp:8000/mcp
+      OBSIDIAN_MCP_URL: http://obsidian-mcp:8080/mcp
+    depends_on: [qdrant-mcp, obsidian-mcp]
+
+  frontend:
+    <<: *restart
+    build: ./frontend
+    ports:
+      - "5173:80"
+    env_file:
+      - ./frontend/.env
+    depends_on: [api]
+
+volumes:
+  fastembed-cache:

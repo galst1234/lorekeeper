@@ -69,10 +69,7 @@ async def fetch_characters(session: OAuth1Session, campaign_id: str, enrich: boo
     print(f"Fetched {len(characters_raw)} characters.")
 
     if enrich:
-        return [
-            await fetch_character(session, campaign_id, character_raw["id"])
-            for character_raw in characters_raw
-        ]
+        return [await fetch_character(session, campaign_id, character_raw["id"]) for character_raw in characters_raw]
     return [Character.model_validate(item) for item in characters_raw]
 
 
@@ -91,9 +88,9 @@ def _load_embedding_model() -> TextEmbedding:
 
 
 async def _ingest_documents(
-        docs: list[Document],
-        embed_model: TextEmbedding,
-        qdrant_client: AsyncQdrantClient,
+    docs: list[Document],
+    embed_model: TextEmbedding,
+    qdrant_client: AsyncQdrantClient,
 ) -> None:
     for i, doc in enumerate(docs):
         print(f"Processing document {i + 1}")

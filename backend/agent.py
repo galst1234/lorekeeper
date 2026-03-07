@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
@@ -62,11 +63,11 @@ def create_agent(local: bool = False) -> Agent:
     )
 
     qdrant_mcp = MCPServerStreamableHTTP(
-        url="http://127.0.0.1:8000/mcp",
+        url=os.environ.get("QDRANT_MCP_URL", "http://127.0.0.1:8000/mcp"),
         timeout=60,
     )
     obsidian_portal_mcp = MCPServerStreamableHTTP(
-        url="http://127.0.0.1:8080/mcp",
+        url=os.environ.get("OBSIDIAN_MCP_URL", "http://127.0.0.1:8080/mcp"),
         timeout=60,
     )
 
