@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import type { KeyboardEvent, ChangeEvent } from 'react'
+
+interface Message {
+  role: 'user' | 'assistant'
+  content: string
+  streaming?: boolean
+  error?: boolean
+}
 
 const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g
 
-function linkify(text) {
+function linkify(text: string): ReactNode[] {
   const parts = text.split(URL_REGEX)
   return parts.map((part, i) =>
     URL_REGEX.test(part)
@@ -21,11 +30,11 @@ function getOrCreateSessionId() {
 }
 
 export default function App() {
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId] = useState(getOrCreateSessionId)
-  const bottomRef = useRef(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -51,7 +60,7 @@ export default function App() {
         body: JSON.stringify({ message: text, session_id: sessionId }),
       })
 
-      const reader = response.body.getReader()
+      const reader = response.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
 
@@ -61,7 +70,7 @@ export default function App() {
 
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split('\n')
-        buffer = lines.pop()
+        buffer = lines.pop()!
 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
@@ -103,7 +112,7 @@ export default function App() {
         const updated = [...prev]
         updated[updated.length - 1] = {
           ...updated[updated.length - 1],
-          content: `Error: ${err.message}`,
+          content: `Error: ${(err as Error).message}`,
           streaming: false,
           error: true,
         }
@@ -119,7 +128,7 @@ export default function App() {
     setMessages([])
   }
 
-  function handleKeyDown(e) {
+  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       sendMessage()
@@ -153,7 +162,7 @@ export default function App() {
       <div className="input-area">
         <textarea
           value={input}
-          onChange={e => setInput(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask about the campaign lore... (Enter to send)"
           disabled={isLoading}
