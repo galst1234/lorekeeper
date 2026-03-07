@@ -1,7 +1,7 @@
-.env
-.venv
+**/.env
+**/.venv
 .idea
-*/.op_token.json
+backend/obsidian_portal/.op_token.json
 *.log
 .claude/settings.local.json
 **/node_modules
