@@ -1,0 +1,19 @@
+name: Run Ty
+description: Run Ty type checker on a specific project
+
+inputs:
+  project-dir:
+    description: 'Project directory to type check'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run Ty
+      shell: bash
+      working-directory: ${{ inputs.project-dir }}
+      run: uv run --frozen ty check .
+
+    - name: Minimize uv cache
+      shell: bash
+      run: uv cache prune --ci

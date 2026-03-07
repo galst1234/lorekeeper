@@ -1,0 +1,16 @@
+name: Run Ruff
+description: Run Ruff linter on a specific project
+
+inputs:
+  project-dir:
+    description: 'Project directory to lint'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run Ruff
+      uses: astral-sh/ruff-action@v3
+      with:
+        src: ${{ inputs.project-dir }}
+        version-file: ${{ inputs.project-dir }}/pyproject.toml

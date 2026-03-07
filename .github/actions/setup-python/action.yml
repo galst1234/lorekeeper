@@ -1,0 +1,18 @@
+name: Setup Python with uv
+description: Set up Python environment using uv for a specific project
+
+inputs:
+  project-dir:
+    description: 'Project directory containing pyproject.toml'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python with uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        python-version: "3.13"
+        enable-cache: true
+        cache-suffix: ${{ inputs.project-dir }}
+        working-directory: ${{ inputs.project-dir }}
