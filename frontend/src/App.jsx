@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 
+const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g
+
+function linkify(text) {
+  const parts = text.split(URL_REGEX)
+  return parts.map((part, i) =>
+    URL_REGEX.test(part)
+      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a>
+      : part
+  )
+}
+
 function getOrCreateSessionId() {
   let id = localStorage.getItem('lorekeeper_session_id')
   if (!id) {
@@ -131,7 +142,7 @@ export default function App() {
         {messages.map((msg, i) => (
           <div key={i} className={`message ${msg.role} ${msg.error ? 'error' : ''}`}>
             <div className="bubble">
-              {msg.content}
+              {linkify(msg.content)}
               {msg.streaming && <span className="cursor">▋</span>}
             </div>
           </div>

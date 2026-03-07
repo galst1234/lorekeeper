@@ -333,7 +333,7 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
 
 # Create the server instance
 mcp = ExtendedQdrantMCPServer(
-    tool_settings=ToolSettings(tool_find_description=TOOL_FIND_DESCRIPTION),
+    tool_settings=ToolSettings(**{"TOOL_FIND_DESCRIPTION": TOOL_FIND_DESCRIPTION}),
     qdrant_settings=QdrantSettings(),
     embedding_provider_settings=EmbeddingProviderSettings(),
     name="mcp-server-qdrant-extended",
@@ -341,4 +341,4 @@ mcp = ExtendedQdrantMCPServer(
 )
 
 if __name__ == "__main__":
-    asyncio.run(mcp.run_async(transport="streamable-http", port=8000))
+    asyncio.run(mcp.run_async(transport="streamable-http", host="0.0.0.0", port=8000))
