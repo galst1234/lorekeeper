@@ -3,7 +3,7 @@ import logging
 
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
-from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
+from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.ollama import OllamaProvider
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -13,9 +13,9 @@ from config import CAMPAIGN_ID, OLLAMA_MODEL, OLLAMA_URL, OPENAI_API_KEY, OPENAI
 MAX_HISTORY_MESSAGES = 20
 
 
-def _strip_tool_messages(messages: list) -> list:
+def strip_tool_messages(messages: list[ModelMessage]) -> list[ModelMessage]:
     """Keep only user prompts and final text responses — discard tool calls/returns."""
-    clean = []
+    clean: list[ModelMessage] = []
     for msg in messages:
         if isinstance(msg, ModelRequest):
             user_parts = [p for p in msg.parts if isinstance(p, UserPromptPart)]
@@ -35,7 +35,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def main(local: bool = False) -> None:
+def create_agent(local: bool = False) -> Agent:
     system_prompt = (
         "You are LoreKeeper, the lore keeper of a Dungeons & Dragons campaign. "
         "Answer ONLY from retrieved context. No outside knowledge. No guessing. No making up information. "
@@ -55,7 +55,10 @@ async def main(local: bool = False) -> None:
         "with additional qdrant-find calls.\n"
         "5. NEVER say 'no other details were provided' or 'no additional information is available' "
         "without FIRST expanding context on every relevant result and trying alternative search queries.\n\n"
-        "If after exhausting all retrieval steps you still cannot find the answer, say so honestly."
+        "If after exhausting all retrieval steps you still cannot find the answer, say so honestly.\n"
+        "6. Do not reference IDs in your response. To let the user search for more context on their own you can provide"
+        "the name of the document or page, and a link to it on Obsidian Portal. IDs are only for retrieval purposes and"
+        " are not meaningful to the user."
     )
 
     qdrant_mcp = MCPServerStreamableHTTP(
@@ -79,14 +82,19 @@ async def main(local: bool = False) -> None:
             provider=OpenAIProvider(api_key=OPENAI_API_KEY),
         )
 
-    agent = Agent(
+    return Agent(
         model=model,
         toolsets=[qdrant_mcp, obsidian_portal_mcp],
         system_prompt=system_prompt,
     )
+
+
+async def main(local: bool = False) -> None:
+    agent = create_agent(local)
+
     print("Agent ready. Type your question (or 'exit' to quit):")
     user_input = input("User: ").strip()
-    history = None
+    history: list[ModelMessage] | None = None
 
     while user_input.lower() != "exit":
         if not user_input:
@@ -97,18 +105,17 @@ async def main(local: bool = False) -> None:
             result = await agent.run(
                 user_prompt=user_input,
                 message_history=(
-                    history[-MAX_HISTORY_MESSAGES:] if history and len(history) > MAX_HISTORY_MESSAGES else history),
+                    history[-MAX_HISTORY_MESSAGES:] if history and len(history) > MAX_HISTORY_MESSAGES else history
+                ),
             )
-            history = _strip_tool_messages(result.all_messages())
-
+            history = strip_tool_messages(result.all_messages())
             if hasattr(result, "usage"):
-                logger.info(f"Token usage: {result.usage()}")
-
-            logger.debug(f"Agent interaction:\n{result.all_messages()}")
-
+                logger.info("Token usage: %s", result.usage())
             print(f"Agent: {result.output}\n")
         except Exception as e:
-            print(f"Error running agent: {e}")
+            error_msg = f"Error running agent: {e}"
+            print(error_msg)
+            logger.error(error_msg, exc_info=True)
 
         user_input = input("User: ").strip()
 
