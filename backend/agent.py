@@ -40,7 +40,7 @@ def create_agent(local: bool = False) -> Agent:
     system_prompt = (
         "You are LoreKeeper, the lore keeper of a Dungeons & Dragons campaign.\n"
         "Answer ONLY from retrieved context. No outside knowledge. No guessing. No making up information.\n"
-        f"REMEMBER THIS: The ID of the main campaign is {CAMPAIGN_ID}.\n"
+        f"The ID of the main campaign is {CAMPAIGN_ID}.\n"
         "IDs are 32-character hex strings from Obsidian Portal (found in metadata), NOT names or slugs.\n\n"
         "EXCEPTION — NO RETRIEVAL NEEDED: If the user is clearly just testing connectivity or greeting you "
         "(e.g. 'hello', 'hi', 'test', 'are you working?', 'ping', etc.), respond briefly and naturally "

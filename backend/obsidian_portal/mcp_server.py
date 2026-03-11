@@ -3,9 +3,12 @@ import asyncio
 from fastmcp import FastMCP
 from requests_oauthlib import OAuth1Session
 
+import config
 from obsidian_portal.api import create_character, fetch_character, fetch_characters, fetch_wiki_page
 from obsidian_portal.auth import get_authenticated_session_async
 from obsidian_portal.models import Character, CharacterRequest, Page
+
+_CAMPAIGN_ID = config.CAMPAIGN_ID
 
 mcp = FastMCP(
     name="obsidian-portal",
@@ -45,7 +48,7 @@ async def _get_session() -> OAuth1Session:
 
 
 @mcp.tool(tags={"WikiPage", "Post"})
-async def fetch_wiki_page_tool(campaign_id: str, page_id: str) -> Page:
+async def fetch_wiki_page_tool(page_id: str, campaign_id: str = _CAMPAIGN_ID) -> Page:
     """
     Fetch a specific wiki page from Obsidian Portal for the specified campaign ID by page ID.
 
@@ -54,8 +57,8 @@ async def fetch_wiki_page_tool(campaign_id: str, page_id: str) -> Page:
     content of a page.
 
     Args:
-        campaign_id (str): The ID of the campaign.
         page_id (str): The ID of the wiki page to fetch.
+        campaign_id (str): The campaign ID — pre-filled, do not supply.
 
     Returns:
         Page: The wiki page.
@@ -65,7 +68,7 @@ async def fetch_wiki_page_tool(campaign_id: str, page_id: str) -> Page:
 
 
 @mcp.tool(tags={"Character"})
-async def fetch_characters_tool(campaign_id: str) -> list[Character]:
+async def fetch_characters_tool(campaign_id: str = _CAMPAIGN_ID) -> list[Character]:
     """
     Fetch characters from Obsidian Portal for the specified campaign ID.
 
@@ -73,7 +76,7 @@ async def fetch_characters_tool(campaign_id: str) -> list[Character]:
     If you need the full text of these fields you need to retrieve the pages individually using `fetch_character_tool`.
 
     Args:
-        campaign_id (str): The ID of the campaign to fetch characters from.
+        campaign_id (str): The campaign ID — pre-filled, do not supply.
 
     Returns:
         list[Character]: A list of characters.
@@ -83,15 +86,15 @@ async def fetch_characters_tool(campaign_id: str) -> list[Character]:
 
 
 @mcp.tool(tags={"Character"})
-async def fetch_character_tool(campaign_id: str, character_id: str) -> Character:
+async def fetch_character_tool(character_id: str, campaign_id: str = _CAMPAIGN_ID) -> Character:
     """
     Fetch a specific character from Obsidian Portal for the specified campaign ID by character ID.
 
     Use this when you need the full bio and description of a specific character.
 
     Args:
-        campaign_id (str): The ID of the campaign.
         character_id (str): The ID of the character to fetch.
+        campaign_id (str): The campaign ID — pre-filled, do not supply.
 
     Returns:
         Character: The character.
@@ -102,12 +105,12 @@ async def fetch_character_tool(campaign_id: str, character_id: str) -> Character
 
 @mcp.tool(tags={"Character"})
 async def create_character_tool(  # noqa: PLR0913, PLR0917
-    campaign_id: str,
     name: str,
-    description: str | None,
-    bio: str | None,
-    tagline: str | None,
-    tags: set[str] | None,
+    description: str | None = None,
+    bio: str | None = None,
+    tagline: str | None = None,
+    tags: set[str] | None = None,
+    campaign_id: str = _CAMPAIGN_ID,
 ) -> None:
     """
     Create a new character in Obsidian Portal for the specified campaign ID.
@@ -115,7 +118,8 @@ async def create_character_tool(  # noqa: PLR0913, PLR0917
     IMPORTANT: Before creating a character you MUST first fetch the list of existing characters in the campaign using
     `fetch_characters_tool` and make sure that there isn't already a character with the same name. For consecutive
     character creation, you can fetch the list of characters once and keep it in context to check against before
-    creating each character.
+    creating each character. Do this FIRST before even showing the user the information or generating any content for
+    the character you plan to create, to avoid unnecessary work in case the character already exists.
 
     IMPORTANT: Before creating a character you MUST first show the user the character's information you plan to create,
     and ask for confirmation that they want to create the character with this information.
@@ -123,12 +127,12 @@ async def create_character_tool(  # noqa: PLR0913, PLR0917
     IMPORTANT: Before creating a character MAKE SURE to be concise. Also MAKE SURE you are not repeating information.
 
     Args:
-        campaign_id (str): The ID of the campaign.
         name (str): The name of the character.
         description (str): A brief physical description of the character (if available).
         bio (str): A brief introductory outline, and any information you deem important to get a quick understanding of whom the character is.
         tagline (str): A SHORT one sentence description of the character, suitable for use as a tagline or quick reference.
         tags (set[str]): A list of tags to associate with the character. For dead characters MAKE SURE to include the "Dead" tag.
+        campaign_id (str): The campaign ID — pre-filled, do not supply.
 
     Returns:
         None
