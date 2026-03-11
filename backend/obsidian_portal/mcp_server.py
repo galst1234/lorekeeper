@@ -3,9 +3,9 @@ import asyncio
 from fastmcp import FastMCP
 from requests_oauthlib import OAuth1Session
 
+from obsidian_portal.api import create_character, fetch_character, fetch_characters, fetch_wiki_page
 from obsidian_portal.auth import get_authenticated_session_async
-from obsidian_portal.fetcher import fetch_character as fetcher_fetch_character
-from obsidian_portal.ingest import Character
+from obsidian_portal.models import Character, CharacterRequest, Page
 
 mcp = FastMCP(
     name="obsidian-portal",
@@ -44,45 +44,50 @@ async def _get_session() -> OAuth1Session:
 #     return await fetcher_fetch_wiki_pages(session, campaign_id)
 
 
-# @mcp.tool(tags={"WikiPage", "Post"})
-# async def fetch_wiki_page(campaign_id: str, page_id: str) -> Page:
-#     """
-#     Fetch a specific wiki page from Obsidian Portal for the specified campaign ID and page ID.
-#
-#     Args:
-#         campaign_id (str): The ID of the campaign.
-#         page_id (str): The ID of the wiki page to fetch.
-#
-#     Returns:
-#         Page: The wiki page.
-#     """
-#     session = await _get_session()
-#     return await fetcher_fetch_wiki_page(session, campaign_id, page_id)
+@mcp.tool(tags={"WikiPage", "Post"})
+async def fetch_wiki_page_tool(campaign_id: str, page_id: str) -> Page:
+    """
+    Fetch a specific wiki page from Obsidian Portal for the specified campaign ID by page ID.
 
+    IMPORTANT: ONLY use it when you need the FULL content of a specific page. It is better than fully expanding chunks
+    of a page retrieved in search results, and should be used instead of expansion when you know you need the full
+    content of a page.
 
-# @mcp.tool(tags={"Character"})
-# async def fetch_characters(campaign_id: str) -> list[Character]:
-#     """
-#     Fetch characters from Obsidian Portal for the specified campaign ID.
-#
-#     Note: To conserve bandwidth, the bio and description fields are not returned.
-#     If you need the full text of these fields you will need to retrieve the pages individually using
-#     the `fetch_character` tool.
-#
-#     Args:
-#         campaign_id (str): The ID of the campaign to fetch characters from.
-#
-#     Returns:
-#         list[Character]: A list of characters.
-#     """
-#     session = await _get_session()
-#     return await fetcher_fetch_characters(session, campaign_id)
+    Args:
+        campaign_id (str): The ID of the campaign.
+        page_id (str): The ID of the wiki page to fetch.
+
+    Returns:
+        Page: The wiki page.
+    """
+    session = await _get_session()
+    return await fetch_wiki_page(session, campaign_id, page_id)
 
 
 @mcp.tool(tags={"Character"})
-async def fetch_character(campaign_id: str, character_id: str) -> Character:
+async def fetch_characters_tool(campaign_id: str) -> list[Character]:
     """
-    Fetch a specific character from Obsidian Portal for the specified campaign ID and character ID.
+    Fetch characters from Obsidian Portal for the specified campaign ID.
+
+    Note: To conserve bandwidth, the bio and description fields are not returned.
+    If you need the full text of these fields you need to retrieve the pages individually using `fetch_character_tool`.
+
+    Args:
+        campaign_id (str): The ID of the campaign to fetch characters from.
+
+    Returns:
+        list[Character]: A list of characters.
+    """
+    session = await _get_session()
+    return await fetch_characters(session, campaign_id)
+
+
+@mcp.tool(tags={"Character"})
+async def fetch_character_tool(campaign_id: str, character_id: str) -> Character:
+    """
+    Fetch a specific character from Obsidian Portal for the specified campaign ID by character ID.
+
+    Use this when you need the full bio and description of a specific character.
 
     Args:
         campaign_id (str): The ID of the campaign.
@@ -92,7 +97,53 @@ async def fetch_character(campaign_id: str, character_id: str) -> Character:
         Character: The character.
     """
     session = await _get_session()
-    return await fetcher_fetch_character(session, campaign_id, character_id)
+    return await fetch_character(session, campaign_id, character_id)
+
+
+@mcp.tool(tags={"Character"})
+async def create_character_tool(  # noqa: PLR0913, PLR0917
+    campaign_id: str,
+    name: str,
+    description: str | None,
+    bio: str | None,
+    tagline: str | None,
+    tags: set[str] | None,
+) -> None:
+    """
+    Create a new character in Obsidian Portal for the specified campaign ID.
+
+    IMPORTANT: Before creating a character you MUST first fetch the list of existing characters in the campaign using
+    `fetch_characters_tool` and make sure that there isn't already a character with the same name. For consecutive
+    character creation, you can fetch the list of characters once and keep it in context to check against before
+    creating each character.
+
+    IMPORTANT: Before creating a character you MUST first show the user the character's information you plan to create,
+    and ask for confirmation that they want to create the character with this information.
+
+    IMPORTANT: Before creating a character MAKE SURE to be concise. Also MAKE SURE you are not repeating information.
+
+    Args:
+        campaign_id (str): The ID of the campaign.
+        name (str): The name of the character.
+        description (str): A brief physical description of the character (if available).
+        bio (str): A brief introductory outline, and any information you deem important to get a quick understanding of whom the character is.
+        tagline (str): A SHORT one sentence description of the character, suitable for use as a tagline or quick reference.
+        tags (set[str]): A list of tags to associate with the character. For dead characters MAKE SURE to include the "Dead" tag.
+
+    Returns:
+        None
+    """  # noqa: E501
+    tags: set[str] = tags or set()
+    tags.add("AI Generated")
+    session = await _get_session()
+    character_request = CharacterRequest(
+        name=name,
+        description=description,
+        bio=bio,
+        tagline=tagline,
+        tags=list(tags),
+    )
+    await create_character(session, campaign_id, character_request)
 
 
 @mcp.tool()
