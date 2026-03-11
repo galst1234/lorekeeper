@@ -4,11 +4,20 @@ from fastmcp import FastMCP
 from requests_oauthlib import OAuth1Session
 
 import config
-from obsidian_portal.api import create_character, fetch_character, fetch_characters, fetch_wiki_page
+from obsidian_portal.api import (
+    create_character,
+    create_quest,
+    fetch_character,
+    fetch_characters,
+    fetch_quests,
+    fetch_wiki_page,
+    update_quest,
+)
 from obsidian_portal.auth import get_authenticated_session_async
-from obsidian_portal.models import Character, CharacterRequest, Page
+from obsidian_portal.models import Character, CharacterRequest, Page, Quest, QuestStatus, QuestType
 
 _CAMPAIGN_ID = config.CAMPAIGN_ID
+_QUEST_LOG_PAGE_ID = config.QUEST_LOG_PAGE_ID
 
 mcp = FastMCP(
     name="obsidian-portal",
@@ -148,6 +157,125 @@ async def create_character_tool(  # noqa: PLR0913, PLR0917
         tags=list(tags),
     )
     await create_character(session, campaign_id, character_request)
+
+
+@mcp.tool(tags={"WikiPage", "Quest"})
+async def fetch_quests_tool(campaign_id: str = _CAMPAIGN_ID, page_id: str = _QUEST_LOG_PAGE_ID) -> list[Quest]:
+    """
+    Fetch all quests from the Quest Log wiki page, parsed into structured objects.
+
+    Use this as the first step before creating or updating a quest — to check for duplicate titles
+    and to get the exact current title of a quest you want to modify.
+    The Personal Quests section is excluded from results.
+
+    Args:
+        campaign_id (str): The campaign ID — pre-filled, do not supply.
+        page_id (str): The Quest Log wiki page ID — pre-filled, do not supply.
+
+    Returns:
+        list[Quest]: All quests with their title, content, status (open/completed/failed),
+            phase (e.g. "Phase 2", "Phase 1"), and quest_type ("Main Quest", "Side Quest", or None).
+    """
+    session = await _get_session()
+    return await fetch_quests(session, campaign_id, page_id)
+
+
+@mcp.tool(tags={"WikiPage", "Quest"})
+async def create_quest_tool(  # noqa: PLR0913, PLR0917
+    title: str,
+    content: str,
+    phase: str,
+    quest_type: QuestType | None,
+    status: QuestStatus = "open",
+    campaign_id: str = _CAMPAIGN_ID,
+    page_id: str = _QUEST_LOG_PAGE_ID,
+) -> str:
+    """
+    Add a new quest to the Quest Log wiki page.
+
+    IMPORTANT: Before calling this tool you MUST first use `fetch_quests_tool` to confirm
+    no quest with the same title already exists.
+
+    IMPORTANT: Before calling this tool you MUST show the user the quest details (title, content,
+    phase, quest_type, status) and ask for explicit confirmation.
+
+    IMPORTANT: Keep quest content concise and avoid repeating information.
+
+    Args:
+        title (str): The quest title as it will appear in the accordion header.
+        content (str): The quest body text (supports Obsidian Portal markup).
+        phase (str): The phase section to place the quest in, e.g. "Phase 2", "Future Phases".
+        quest_type (str | None): "Main Quest" or "Side Quest" subsection, or None for phases
+            that have no subsection headers (e.g. "Future Phases").
+        status (str): "open", "completed", or "failed". Determines active vs completed section.
+            Defaults to "open".
+        campaign_id (str): The campaign ID — pre-filled, do not supply.
+        page_id (str): The Quest Log wiki page ID — pre-filled, do not supply.
+
+    Returns:
+        str: Confirmation message with the quest's location and status.
+    """
+    session = await _get_session()
+    await create_quest(
+        session,
+        campaign_id,
+        page_id,
+        quest=Quest(title=title, content=content, status=status, phase=phase, quest_type=quest_type),
+    )
+    return f"Quest '{title}' created in {phase} / {quest_type or 'no sub-section'} ({status})."
+
+
+@mcp.tool(tags={"WikiPage", "Quest"})
+async def update_quest_tool(  # noqa: PLR0913, PLR0917
+    title: str,
+    new_title: str | None = None,
+    new_content: str | None = None,
+    new_status: QuestStatus | None = None,
+    new_phase: str | None = None,
+    new_quest_type: QuestType | None = None,
+    campaign_id: str = _CAMPAIGN_ID,
+    page_id: str = _QUEST_LOG_PAGE_ID,
+) -> str:
+    """
+    Update an existing quest on the Quest Log wiki page, identified by its current title.
+    Only supply the fields you want to change — omitted fields are left as-is.
+
+    Changing status to "completed" or "failed" automatically moves the quest from the
+    Active Quests section to the Completed Quests section. Changing phase or quest_type
+    will also relocate the quest to the correct subsection.
+
+    IMPORTANT: Before calling this tool you MUST first use `fetch_quests_tool` to confirm
+    the quest exists and get its exact current title (titles are case-sensitive).
+
+    IMPORTANT: Before calling this tool you MUST show the user the planned changes and ask
+    for explicit confirmation.
+
+    Args:
+        title (str): The current exact title of the quest to update.
+        new_title (str | None): Rename the quest to this title.
+        new_content (str | None): Replace the quest body text.
+        new_status (str | None): Change status to "open", "completed", or "failed".
+        new_phase (str | None): Move the quest to a different phase section.
+        new_quest_type (str | None): Move the quest to "Main Quest" or "Side Quest" subsection.
+        campaign_id (str): The campaign ID — pre-filled, do not supply.
+        page_id (str): The Quest Log wiki page ID — pre-filled, do not supply.
+
+    Returns:
+        str: Human-readable summary of the changes applied.
+    """
+    session = await _get_session()
+    summary = await update_quest(
+        session,
+        campaign_id,
+        page_id,
+        title=title,
+        new_title=new_title,
+        new_content=new_content,
+        new_status=new_status,
+        new_phase=new_phase,
+        new_quest_type=new_quest_type,
+    )
+    return f"Quest '{title}' updated: {summary}"
 
 
 @mcp.tool()

@@ -79,3 +79,15 @@ class CharacterRequest(BaseModel):
     bio: str | None = None
     tagline: str | None = None
     tags: list[str] = Field(default_factory=list)
+
+
+QuestStatus = Literal["open", "completed", "failed"]
+QuestType = Literal["Main Quest", "Side Quest"]
+
+
+class Quest(BaseModel):
+    title: str
+    content: str
+    status: QuestStatus
+    phase: str
+    quest_type: QuestType | None = None
