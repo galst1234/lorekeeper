@@ -70,13 +70,15 @@ async def fetch_character(session: OAuth1Session, campaign_id: str, character_id
     return Character.model_validate(raw)
 
 
-async def create_character(session: OAuth1Session, campaign_id: str, character: CharacterRequest) -> None:
+async def create_character(session: OAuth1Session, campaign_id: str, character: CharacterRequest) -> Character:
     """We don't return any value because for some reason the API returns 500 even on success, fun!"""
     url = f"https://api.obsidianportal.com/v1/campaigns/{campaign_id}/characters.json"
     data = {"character": character.model_dump(by_alias=True)}
     print(f"Creating character in Obsidian Portal API: {url} with data: {data}")
     response = await asyncio.to_thread(session.post, url, json=data)
-    print(f"API response status: {response.status_code}")
+    print(f"API response status: {response.status_code} with body: {response.text}")
+    raw = await asyncio.to_thread(response.json)
+    return Character.model_validate(raw)
 
 
 async def fetch_quests(session: OAuth1Session, campaign_id: str, quest_page_id: str) -> list[Quest]:

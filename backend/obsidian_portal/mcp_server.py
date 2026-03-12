@@ -120,7 +120,7 @@ async def create_character_tool(  # noqa: PLR0913, PLR0917
     tagline: str | None = None,
     tags: set[str] | None = None,
     campaign_id: str = _CAMPAIGN_ID,
-) -> None:
+) -> Character:
     """
     Create a new character in Obsidian Portal for the specified campaign ID.
 
@@ -156,7 +156,7 @@ async def create_character_tool(  # noqa: PLR0913, PLR0917
         tagline=tagline,
         tags=list(tags),
     )
-    await create_character(session, campaign_id, character_request)
+    return await create_character(session, campaign_id, character_request)
 
 
 @mcp.tool(tags={"WikiPage", "Quest"})
