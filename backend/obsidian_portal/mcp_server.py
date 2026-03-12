@@ -138,7 +138,11 @@ async def create_character_tool(  # noqa: PLR0913, PLR0917
     Args:
         name (str): The name of the character.
         description (str): A brief physical description of the character (if available).
+            Use Obsidian Portal wiki-link syntax for any referenced entities:
+            [[:slug | Display Name]] for characters, [[Page Title | Display Name]] for pages.
         bio (str): A brief introductory outline, and any information you deem important to get a quick understanding of whom the character is.
+            Use Obsidian Portal wiki-link syntax for any referenced entities:
+            [[:slug | Display Name]] for characters, [[Page Title | Display Name]] for pages.
         tagline (str): A SHORT one sentence description of the character, suitable for use as a tagline or quick reference.
         tags (set[str]): A list of tags to associate with the character. For dead characters MAKE SURE to include the "Dead" tag.
         campaign_id (str): The campaign ID — pre-filled, do not supply.
@@ -204,6 +208,8 @@ async def create_quest_tool(  # noqa: PLR0913, PLR0917
     Args:
         title (str): The quest title as it will appear in the accordion header.
         content (str): The quest body text (supports Obsidian Portal markup).
+            Use Obsidian Portal wiki-link syntax for any referenced entities:
+            [[:slug | Display Name]] for characters, [[Page Title | Display Name]] for pages.
         phase (str): The phase section to place the quest in, e.g. "Phase 2", "Future Phases".
         quest_type (str | None): "Main Quest" or "Side Quest" subsection, or None for phases
             that have no subsection headers (e.g. "Future Phases").
@@ -254,6 +260,8 @@ async def update_quest_tool(  # noqa: PLR0913, PLR0917
         title (str): The current exact title of the quest to update.
         new_title (str | None): Rename the quest to this title.
         new_content (str | None): Replace the quest body text.
+            Use Obsidian Portal wiki-link syntax for any referenced entities:
+            [[:slug | Display Name]] for characters, [[Page Title | Display Name]] for pages.
         new_status (str | None): Change status to "open", "completed", or "failed".
         new_phase (str | None): Move the quest to a different phase section.
         new_quest_type (str | None): Move the quest to "Main Quest" or "Side Quest" subsection.

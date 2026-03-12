@@ -68,7 +68,15 @@ def create_agent(local: bool = False) -> Agent:
         "exact details of the operation you intend to perform. Do NOT perform any write operations without explicit "
         "user approval.\n"
         "9. BE CONCISE: When performing write operations be as concise as possible while still providing complete and "
-        "accurate information. Avoid repeating the same information."
+        "accurate information. Avoid repeating the same information.\n"
+        "10. OBSIDIAN PORTAL LINKS: When generating content (quest bodies, character bios/descriptions) "
+        "that references another entity, use Obsidian Portal wiki-link syntax instead of plain text:\n"
+        "    - Characters/items: [[:slug | Display Name]]  (slug from metadata.slug or fetch_characters_tool)\n"
+        "    - Pages: [[Page Title | Display Name]]  (title from metadata.title or fetch_wiki_page_tool)\n"
+        "    The display name can be any contextually appropriate text (full name, nickname, title, etc.).\n"
+        "    Example: [[:allandra-grey | Allandra Grey]], [[Burning Wizard, the | the Burning Wizard]]\n"
+        "    If you do not know the slug or title of an entity, look it up via qdrant-find or "
+        "fetch_characters_tool before writing the content."
     )
 
     qdrant_mcp = MCPServerStreamableHTTP(

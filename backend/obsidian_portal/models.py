@@ -8,6 +8,7 @@ DocType = Literal["WikiPage", "Post", "Character"]
 
 class Document(abc.ABC, BaseModel):
     id: str
+    slug: str
     type: DocType
     source_url: str
     tags: list[str]
@@ -24,6 +25,7 @@ class Document(abc.ABC, BaseModel):
     def metadata(self) -> dict[str, Any]:
         return {
             "id": self.id,
+            "slug": self.slug,
             "type": self.type,
             "source_url": self.source_url,
             "tags": self.tags,
