@@ -43,6 +43,12 @@ body {
   letter-spacing: 0.05em;
 }
 
+.last-fetched {
+  font-size: 0.75rem;
+  color: #6a5840;
+  font-style: italic;
+}
+
 .clear-btn {
   background: transparent;
   border: 1px solid #5a4030;

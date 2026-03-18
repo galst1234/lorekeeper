@@ -7,3 +7,4 @@ backend/obsidian_portal/.op_token.json
 **/node_modules
 **/__pycache__
 frontend/dist
+**/last_fetched.json

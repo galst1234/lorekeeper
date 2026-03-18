@@ -2,6 +2,7 @@ import json
 import logging
 import uuid
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,6 +35,14 @@ class ChatRequest(BaseModel):
 @app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/last-fetched")
+async def last_fetched() -> dict:
+    p = Path("last_fetched.json")
+    if not p.exists():
+        return {"fetched_at": None}
+    return json.loads(p.read_text(encoding="utf-8"))
 
 
 @app.post("/api/chat")

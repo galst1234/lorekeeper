@@ -1,4 +1,7 @@
 import asyncio
+import json
+from datetime import UTC, datetime
+from pathlib import Path
 
 from fastembed import TextEmbedding
 from qdrant_client import AsyncQdrantClient
@@ -12,6 +15,7 @@ from obsidian_portal.models import Document
 
 
 async def main() -> None:
+    fetched_at = datetime.now(UTC)
     qdrant_client = await _setup_qdrant()
     print("Setting up authenticated session...")
     session = await get_authenticated_session_async()
@@ -20,6 +24,11 @@ async def main() -> None:
     docs += await fetch_characters(session, CAMPAIGN_ID, enrich=True)
     embed_model = _load_embedding_model()
     await _ingest_documents(docs, embed_model, qdrant_client)
+    Path("last_fetched.json").write_text(
+        json.dumps({"fetched_at": fetched_at.isoformat()}),
+        encoding="utf-8",
+    )
+    print("Wrote last_fetched.json")
 
 
 async def _setup_qdrant() -> AsyncQdrantClient:

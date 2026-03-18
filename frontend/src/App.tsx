@@ -34,7 +34,15 @@ export default function App() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId] = useState(getOrCreateSessionId)
+  const [lastFetched, setLastFetched] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetch('/api/last-fetched')
+      .then(r => r.json())
+      .then(d => setLastFetched(d.fetched_at))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -139,6 +147,11 @@ export default function App() {
     <div className="app">
       <header className="header">
         <h1>⚔️ LoreKeeper</h1>
+        {lastFetched && (
+          <span className="last-fetched">
+            Last data update: {new Date(lastFetched).toLocaleString('en-GB', { hour12: true })}
+          </span>
+        )}
         <button className="clear-btn" onClick={clearChat} disabled={isLoading}>
           Clear Chat
         </button>
