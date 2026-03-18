@@ -1,13 +1,12 @@
 import asyncio
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 
 from fastembed import TextEmbedding
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance, VectorParams
 
-from config import CAMPAIGN_ID, COLLECTION_NAME, QDRANT_URL, VECTOR_NAME
+from config import CAMPAIGN_ID, COLLECTION_NAME, DATA_DIR, QDRANT_URL, VECTOR_NAME
 from obsidian_portal.api import fetch_characters, fetch_wiki_pages
 from obsidian_portal.auth import get_authenticated_session_async
 from obsidian_portal.ingest import prepare_document_points, upsert_points
@@ -24,7 +23,7 @@ async def main() -> None:
     docs += await fetch_characters(session, CAMPAIGN_ID, enrich=True)
     embed_model = _load_embedding_model()
     await _ingest_documents(docs, embed_model, qdrant_client)
-    Path("last_fetched.json").write_text(
+    (DATA_DIR / "last_fetched.json").write_text(
         json.dumps({"fetched_at": fetched_at.isoformat()}),
         encoding="utf-8",
     )

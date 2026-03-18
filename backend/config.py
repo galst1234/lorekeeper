@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -26,3 +27,5 @@ OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5-mini-2025-08-07")
 
 
 VECTOR_NAME = "fast-bge-base-en-v1.5"
+
+DATA_DIR = Path(os.environ.get("DATA_DIR", "."))

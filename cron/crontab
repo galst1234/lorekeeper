@@ -1,0 +1,1 @@
+0 3 * * * wget -q -O /dev/null --post-data "" http://api:8001/api/fetch

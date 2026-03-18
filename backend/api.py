@@ -1,8 +1,9 @@
+import asyncio
 import json
 import logging
+import os
 import uuid
 from collections.abc import AsyncGenerator
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,7 @@ from pydantic import BaseModel
 from pydantic_ai.messages import ModelMessage
 
 from agent import MAX_HISTORY_MESSAGES, create_agent, strip_tool_messages
+from config import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +41,35 @@ async def health() -> dict[str, str]:
 
 @app.get("/api/last-fetched")
 async def last_fetched() -> dict:
-    p = Path("last_fetched.json")
+    p = DATA_DIR / "last_fetched.json"
     if not p.exists():
         return {"fetched_at": None}
     return json.loads(p.read_text(encoding="utf-8"))
+
+
+async def _run_fetch() -> None:
+    proc = await asyncio.create_subprocess_exec(
+        "python",
+        "obsidian_portal/fetcher.py",
+        cwd="/app",
+        env={**os.environ, "PYTHONPATH": "/app"},
+    )
+    exit_code = await proc.wait()
+    if exit_code == 0:
+        logger.info("Fetcher completed successfully")
+    else:
+        logger.error("Fetcher exited with code %d", exit_code)
+
+
+_fetch_tasks: set[asyncio.Task] = set()
+
+
+@app.post("/api/fetch", status_code=202)
+async def trigger_fetch() -> dict[str, str]:
+    task = asyncio.create_task(_run_fetch())
+    _fetch_tasks.add(task)
+    task.add_done_callback(_fetch_tasks.discard)
+    return {"status": "started"}
 
 
 @app.post("/api/chat")

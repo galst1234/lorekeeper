@@ -24,7 +24,17 @@ services:
     environment:
       QDRANT_MCP_URL: http://qdrant-mcp:8000/mcp
       OBSIDIAN_MCP_URL: http://obsidian-mcp:8080/mcp
+      DATA_DIR: /data
+    volumes:
+      - fastembed-cache:/root/.cache/fastembed
+      - fetched-data:/data
     depends_on: [qdrant-mcp, obsidian-mcp]
+
+  cron:
+    <<: *restart
+    build: ./cron
+    init: true
+    depends_on: [api]
 
   frontend:
     <<: *restart
@@ -37,3 +47,4 @@ services:
 
 volumes:
   fastembed-cache:
+  fetched-data:
