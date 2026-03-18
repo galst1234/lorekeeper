@@ -9,7 +9,7 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.ollama import OllamaProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from config import CAMPAIGN_ID, OLLAMA_MODEL, OLLAMA_URL, OPENAI_API_KEY, OPENAI_MODEL
+from config import settings
 
 MAX_HISTORY_MESSAGES = 20
 
@@ -40,7 +40,7 @@ def create_agent(local: bool = False) -> Agent:
     system_prompt = (
         "You are LoreKeeper, the lore keeper of a Dungeons & Dragons campaign.\n"
         "Answer ONLY from retrieved context. No outside knowledge. No guessing. No making up information.\n"
-        f"The ID of the main campaign is {CAMPAIGN_ID}.\n"
+        f"The ID of the main campaign is {settings.campaign_id}.\n"
         "IDs are 32-character hex strings from Obsidian Portal (found in metadata), NOT names or slugs.\n\n"
         "EXCEPTION — NO RETRIEVAL NEEDED: If the user is clearly just testing connectivity or greeting you "
         "(e.g. 'hello', 'hi', 'test', 'are you working?', 'ping', etc.), respond briefly and naturally "
@@ -91,13 +91,13 @@ def create_agent(local: bool = False) -> Agent:
     if local:
         # noinspection PyTypeChecker
         model = OpenAIChatModel(
-            model_name=OLLAMA_MODEL,
-            provider=OllamaProvider(base_url=f"{OLLAMA_URL}/v1"),
+            model_name=settings.ollama_model,
+            provider=OllamaProvider(base_url=f"{settings.ollama_url}/v1"),
         )
     else:
         model = OpenAIChatModel(
-            model_name=OPENAI_MODEL,
-            provider=OpenAIProvider(api_key=OPENAI_API_KEY),
+            model_name=settings.openai_model,
+            provider=OpenAIProvider(api_key=settings.openai_api_key),
         )
 
     return Agent(

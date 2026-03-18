@@ -3,7 +3,7 @@ import asyncio
 from fastmcp import FastMCP
 from requests_oauthlib import OAuth1Session
 
-import config
+from config import settings
 from obsidian_portal.api import (
     create_character,
     create_quest,
@@ -16,8 +16,8 @@ from obsidian_portal.api import (
 from obsidian_portal.auth import get_authenticated_session_async
 from obsidian_portal.models import Character, CharacterRequest, Page, Quest, QuestStatus, QuestType
 
-_CAMPAIGN_ID = config.CAMPAIGN_ID
-_QUEST_LOG_PAGE_ID = config.QUEST_LOG_PAGE_ID
+_CAMPAIGN_ID = settings.campaign_id
+_QUEST_LOG_PAGE_ID = settings.quest_log_page_id
 
 mcp = FastMCP(
     name="obsidian-portal",

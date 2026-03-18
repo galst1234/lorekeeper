@@ -4,7 +4,7 @@ from fastembed import TextEmbedding
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import PointStruct
 
-from config import VECTOR_NAME
+from config import settings
 from obsidian_portal.models import Document
 
 
@@ -54,7 +54,7 @@ def prepare_document_points(doc: Document, embed_model: TextEmbedding) -> list[P
             "document": chunk,
             "metadata": metadata,
         }
-        points.append(PointStruct(id=point_id, vector={VECTOR_NAME: vector.tolist()}, payload=payload))
+        points.append(PointStruct(id=point_id, vector={settings.vector_name: vector.tolist()}, payload=payload))
         print(f"Prepared Point ID: {point_id} with payload keys: {list(payload.keys())}")
     return points
 

@@ -9,7 +9,7 @@ readme = "../README.md"
 license = {text = "MIT"}
 requires-python = ">=3.13"
 dependencies = [
-    "dotenv>=0.9.9",
+    "pydantic-settings~=2.7",
     "qdrant-client~=1.17",
     "requests-oauthlib~=2.0",
     "openai~=2.26",

@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from pydantic_ai.messages import ModelMessage
 
 from agent import MAX_HISTORY_MESSAGES, create_agent, strip_tool_messages
-from config import DATA_DIR
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ async def health() -> dict[str, str]:
 
 @app.get("/api/last-fetched")
 async def last_fetched() -> dict:
-    p = DATA_DIR / "last_fetched.json"
+    p = settings.data_dir / "last_fetched.json"
     if not p.exists():
         return {"fetched_at": None}
     return json.loads(p.read_text(encoding="utf-8"))
@@ -66,7 +66,7 @@ _fetch_tasks: set[asyncio.Task] = set()
 
 
 def _get_next_allowed_at() -> datetime | None:
-    p = DATA_DIR / "last_fetched.json"
+    p = settings.data_dir / "last_fetched.json"
     if not p.exists():
         return None
     data = json.loads(p.read_text(encoding="utf-8"))

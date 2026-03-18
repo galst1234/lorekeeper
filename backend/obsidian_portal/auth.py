@@ -5,7 +5,7 @@ import os
 from pydantic import BaseModel, Field
 from requests_oauthlib import OAuth1Session
 
-from config import ACCESS_TOKEN_URL, AUTHORIZE_URL, CONSUMER_KEY, CONSUMER_SECRET, REQUEST_TOKEN_URL
+from config import settings
 
 USER_AGENT = "ObsidianPortalOAuthTest/1.0"
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), ".op_token.json")
@@ -29,8 +29,8 @@ def get_authenticated_session() -> OAuth1Session:
         _save_token(token)
 
     session = OAuth1Session(
-        CONSUMER_KEY,
-        client_secret=CONSUMER_SECRET,
+        settings.consumer_key,
+        client_secret=settings.consumer_secret,
         resource_owner_key=token.token,
         resource_owner_secret=token.secret,
     )
@@ -56,27 +56,27 @@ def _save_token(token: AccessToken) -> None:
 
 
 def _get_request_token() -> AccessToken:
-    oauth = OAuth1Session(CONSUMER_KEY, client_secret=CONSUMER_SECRET, callback_uri="oob")
+    oauth = OAuth1Session(settings.consumer_key, client_secret=settings.consumer_secret, callback_uri="oob")
     oauth.headers.update({"User-Agent": USER_AGENT})
-    request_token = oauth.fetch_request_token(REQUEST_TOKEN_URL)
+    request_token = oauth.fetch_request_token(settings.request_token_url)
     return AccessToken.model_validate(request_token)
 
 
 def _authorize_user(request_token: AccessToken) -> str:
     print("Go to the following URL and authorize the app:")
-    print(f"{AUTHORIZE_URL}?oauth_token={request_token.token}")
+    print(f"{settings.authorize_url}?oauth_token={request_token.token}")
     verifier = input("Enter the provided verifier (PIN): ").strip()
     return verifier
 
 
 def _get_access_token(request_token: AccessToken, verifier: str) -> AccessToken:
     oauth = OAuth1Session(
-        CONSUMER_KEY,
-        client_secret=CONSUMER_SECRET,
+        settings.consumer_key,
+        client_secret=settings.consumer_secret,
         resource_owner_key=request_token.token,
         resource_owner_secret=request_token.secret,
         verifier=verifier,
     )
     oauth.headers.update({"User-Agent": USER_AGENT})
-    oauth_tokens = oauth.fetch_access_token(ACCESS_TOKEN_URL)
+    oauth_tokens = oauth.fetch_access_token(settings.access_token_url)
     return AccessToken.model_validate(oauth_tokens)
