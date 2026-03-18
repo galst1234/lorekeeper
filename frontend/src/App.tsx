@@ -35,14 +35,38 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId] = useState(getOrCreateSessionId)
   const [lastFetched, setLastFetched] = useState<string | null>(null)
+  const [isFetching, setIsFetching] = useState(false)
+  const [nextAllowedAt, setNextAllowedAt] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  async function loadFetchStatus() {
+    const d = await fetch('/api/fetch-status').then(r => r.json())
+    setIsFetching(d.running)
+    setNextAllowedAt(d.next_allowed_at ?? null)
+  }
 
   useEffect(() => {
     fetch('/api/last-fetched')
       .then(r => r.json())
       .then(d => setLastFetched(d.fetched_at))
       .catch(() => {})
+    loadFetchStatus().catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!isFetching) return
+    const id = setInterval(() => {
+      loadFetchStatus().then(() => {
+        if (!isFetching) {
+          fetch('/api/last-fetched')
+            .then(r => r.json())
+            .then(d => setLastFetched(d.fetched_at))
+            .catch(() => {})
+        }
+      }).catch(() => {})
+    }, 5000)
+    return () => clearInterval(id)
+  }, [isFetching])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -131,6 +155,16 @@ export default function App() {
     }
   }
 
+  const canRefresh = !isFetching && (!nextAllowedAt || Date.now() >= new Date(nextAllowedAt).getTime())
+
+  async function refreshData() {
+    const d = await fetch('/api/fetch', { method: 'POST' }).then(r => r.json())
+    if (d.status === 'started' || d.status === 'running') {
+      setIsFetching(true)
+    }
+    if (d.next_allowed_at) setNextAllowedAt(d.next_allowed_at)
+  }
+
   async function clearChat() {
     await fetch(`/api/session/${sessionId}`, { method: 'DELETE' })
     setMessages([])
@@ -152,6 +186,9 @@ export default function App() {
             Last data update: {new Date(lastFetched).toLocaleString('en-GB', { hour12: true })}
           </span>
         )}
+        <button className="refresh-btn" onClick={refreshData} disabled={!canRefresh}>
+          {isFetching ? 'Refreshing...' : 'Refresh Data'}
+        </button>
         <button className="clear-btn" onClick={clearChat} disabled={isLoading}>
           Clear Chat
         </button>

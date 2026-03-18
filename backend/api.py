@@ -4,6 +4,7 @@ import logging
 import os
 import uuid
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -64,8 +65,37 @@ async def _run_fetch() -> None:
 _fetch_tasks: set[asyncio.Task] = set()
 
 
+def _get_next_allowed_at() -> datetime | None:
+    p = DATA_DIR / "last_fetched.json"
+    if not p.exists():
+        return None
+    data = json.loads(p.read_text(encoding="utf-8"))
+    fetched_at = data.get("fetched_at")
+    if not fetched_at:
+        return None
+    last_dt = datetime.fromisoformat(fetched_at)
+    return last_dt + timedelta(hours=1)
+
+
+@app.get("/api/fetch-status")
+async def fetch_status() -> dict:
+    running = bool(_fetch_tasks)
+    next_allowed_at = None
+    next_dt = _get_next_allowed_at()
+    if next_dt and next_dt > datetime.now(tz=UTC):
+        next_allowed_at = next_dt.isoformat()
+    return {"running": running, "next_allowed_at": next_allowed_at}
+
+
 @app.post("/api/fetch", status_code=202)
 async def trigger_fetch() -> dict[str, str]:
+    if _fetch_tasks:
+        return {"status": "running"}
+
+    next_dt = _get_next_allowed_at()
+    if next_dt and next_dt > datetime.now(tz=UTC):
+        return {"status": "too_soon", "next_allowed_at": next_dt.isoformat()}
+
     task = asyncio.create_task(_run_fetch())
     _fetch_tasks.add(task)
     task.add_done_callback(_fetch_tasks.discard)

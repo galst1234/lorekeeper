@@ -70,6 +70,27 @@ body {
   cursor: not-allowed;
 }
 
+.refresh-btn {
+  background: transparent;
+  border: 1px solid #5a4030;
+  color: #a08060;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  border-color: #c9a84c;
+  color: #c9a84c;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Messages */
 .messages {
   flex: 1;
