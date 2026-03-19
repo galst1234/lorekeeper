@@ -5,31 +5,48 @@
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Node.js (for frontend)
-- Docker (for full-stack runs)
-
-## Setup
-
-**Backend**
-```bash
-cd backend
-uv sync
-```
-
-**Frontend**
-```bash
-cd frontend
-npm install
-```
-
-**Pre-commit hooks** (run once from `backend/`)
-```bash
-cd backend
-uv run pre-commit install
-```
+- Docker (to run Qdrant and for full-stack deployments)
 
 ## Running locally
 
-The easiest way to run the stack is via the JetBrains run configurations in `.run/`. Start services in this order:
+**1. Start Qdrant**
+
+Qdrant must be running before the fetcher or any backend services can start (the Docker Compose stack does not include a Qdrant container):
+```bash
+docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
+```
+
+**2. Configure credentials**
+
+Copy the example env file and fill in your values — never commit secrets:
+```bash
+cp backend/.env.example backend/.env
+```
+
+**3. Install dependencies**
+
+```bash
+cd backend && uv sync
+cd frontend && npm install
+```
+
+Install pre-commit hooks (run once after cloning):
+```bash
+cd backend && uv run pre-commit install
+```
+
+**4. Populate Qdrant**
+
+Run the `fetcher` JetBrains run configuration, or manually:
+```bash
+cd backend
+uv run python obsidian_portal/fetcher.py
+```
+This fetches all wiki pages and characters from Obsidian Portal, chunks and embeds them, and stores them in Qdrant. On first run it will prompt you through the Obsidian Portal OAuth1 flow and store the resulting access tokens automatically. Subsequent runs are incremental.
+
+**5. Start services**
+
+The easiest way is via the JetBrains run configurations in `.run/`. Start in this order:
 
 1. `qdrant_mcp_server` — Qdrant MCP (port 8000)
 2. `obsidian_mcp_server` — Obsidian Portal MCP (port 8080)
@@ -49,8 +66,6 @@ uv run uvicorn api:app --host 0.0.0.0 --port 8001 --reload  # API (port 8001)
 cd frontend
 npm run dev  # Frontend (port 5173)
 ```
-
-Credentials go in `backend/.env` (gitignored). Copy `backend/.env.example` as a starting point and fill in your values. Never commit secrets.
 
 ## Code quality
 
