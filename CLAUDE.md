@@ -58,6 +58,11 @@ uv run ty check
 ```
 Pre-commit hooks run ruff + ty automatically on commit.
 
+**After making any backend changes, always run pre-commit to verify linting and types pass before considering the task complete:**
+```bash
+cd /d/dev/lorekeeper/backend && uv run pre-commit run --all-files
+```
+
 ## Architecture
 
 ### Services

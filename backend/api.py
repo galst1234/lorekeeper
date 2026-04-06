@@ -17,6 +17,7 @@ from agent import (
     MAX_HISTORY_MESSAGES,
     MODEL_METADATA,
     REASONING_METADATA,
+    SYSTEM_PROMPT,
     ModelChoice,
     ReasoningEffort,
     build_model,
@@ -141,6 +142,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
                 message_history=trimmed,
                 model=run_model,
                 model_settings=run_settings,
+                instructions=SYSTEM_PROMPT,
             ) as stream:
                 async for delta in stream.stream_text(delta=True):
                     yield f"data: {json.dumps({'delta': delta})}\n\n"
