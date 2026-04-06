@@ -49,6 +49,89 @@ body {
   font-style: italic;
 }
 
+.model-select {
+  position: relative;
+}
+
+.model-trigger {
+  border: 1px solid #3a2d1a;
+  color: #e8e0d0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-family: 'Georgia', serif;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  justify-content: space-between;
+  align-self: flex-end;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.model-trigger:hover,
+.model-trigger.open {
+  border-color: #c9a84c;
+}
+
+.model-name-sizer {
+  display: grid;
+}
+
+.model-name-sizer span {
+  grid-area: 1 / 1;
+}
+
+.model-caret {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.model-options {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  background: #1a1720;
+  border: 1px solid #3a2d1a;
+  border-radius: 4px;
+  min-width: 240px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.model-option {
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: background 0.15s;
+}
+
+.model-option:not(:last-child) {
+  border-bottom: 1px solid #2a2030;
+}
+
+.model-option:hover {
+  background: #221e2a;
+}
+
+.model-option.selected {
+  background: #1e1a28;
+}
+
+.model-option-name {
+  font-size: 0.9rem;
+  color: #e8e0d0;
+}
+
+.model-option-desc {
+  font-size: 0.75rem;
+  color: #6a5840;
+  font-style: italic;
+}
+
 .clear-btn {
   background: transparent;
   border: 1px solid #5a4030;

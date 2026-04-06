@@ -1,17 +1,42 @@
 import asyncio
 import logging
 import os
+from enum import StrEnum
 
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
 from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.ollama import OllamaProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from config import settings
 
 MAX_HISTORY_MESSAGES = 20
+
+
+class ModelChoice(StrEnum):
+    GPT5_MINI = "gpt-5-mini-2025-08-07"
+    GPT54_MINI = "gpt-5.4-mini-2026-03-17"
+    GPT54 = "gpt-5.4-2026-03-05"
+
+
+MODEL_METADATA: dict[ModelChoice, dict[str, str]] = {
+    ModelChoice.GPT5_MINI: {
+        "name": "GPT-5 mini",
+        "description": "Fast and efficient — great for everyday lore lookups",
+        "color": "#16141a",
+    },
+    ModelChoice.GPT54_MINI: {
+        "name": "GPT-5.4 mini",
+        "description": "Smarter reasoning for complex or multi-part questions",
+        "color": "#7a3a10",
+    },
+    ModelChoice.GPT54: {
+        "name": "GPT-5.4",
+        "description": "Most capable — best for nuanced analysis and deep lore dives",
+        "color": "#6a1010",
+    },
+}
 
 
 def strip_tool_messages(messages: list[ModelMessage]) -> list[ModelMessage]:
@@ -36,7 +61,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def create_agent(local: bool = False) -> Agent:
+def create_agent() -> Agent:
     system_prompt = (
         "You are LoreKeeper, the lore keeper of a Dungeons & Dragons campaign.\n"
         "Answer ONLY from retrieved context. No outside knowledge. No guessing. No making up information.\n"
@@ -88,17 +113,10 @@ def create_agent(local: bool = False) -> Agent:
         timeout=60,
     )
 
-    if local:
-        # noinspection PyTypeChecker
-        model = OpenAIChatModel(
-            model_name=settings.ollama_model,
-            provider=OllamaProvider(base_url=f"{settings.ollama_url}/v1"),
-        )
-    else:
-        model = OpenAIChatModel(
-            model_name=settings.openai_model,
-            provider=OpenAIProvider(api_key=settings.openai_api_key),
-        )
+    model = OpenAIChatModel(
+        model_name=ModelChoice.GPT5_MINI.value,
+        provider=OpenAIProvider(api_key=settings.openai_api_key),
+    )
 
     return Agent(
         model=model,
@@ -107,8 +125,8 @@ def create_agent(local: bool = False) -> Agent:
     )
 
 
-async def main(local: bool = False) -> None:
-    agent = create_agent(local)
+async def main() -> None:
+    agent = create_agent()
 
     print("Agent ready. Type your question (or 'exit' to quit):")
     user_input = input("User: ").strip()

@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from pydantic_ai.messages import ModelMessage
 
-from agent import MAX_HISTORY_MESSAGES, create_agent, strip_tool_messages
+from agent import MAX_HISTORY_MESSAGES, MODEL_METADATA, ModelChoice, create_agent, strip_tool_messages
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,12 @@ sessions: dict[str, list[ModelMessage]] = {}
 class ChatRequest(BaseModel):
     message: str
     session_id: str = ""
+    model: ModelChoice = ModelChoice.GPT5_MINI
+
+
+@app.get("/api/models")
+async def get_models() -> list[dict[str, str]]:
+    return [{"id": m.value, **MODEL_METADATA[m]} for m in ModelChoice]
 
 
 @app.get("/api/health")
@@ -114,6 +120,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
             async with agent.run_stream(
                 user_prompt=req.message,
                 message_history=trimmed,
+                model=req.model,
             ) as stream:
                 async for delta in stream.stream_text(delta=True):
                     yield f"data: {json.dumps({'delta': delta})}\n\n"

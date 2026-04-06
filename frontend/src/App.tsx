@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { KeyboardEvent, ChangeEvent } from 'react'
+import type { KeyboardEvent, ChangeEvent, MouseEvent } from 'react'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
   streaming?: boolean
   error?: boolean
+}
+
+interface ModelOption {
+  id: string
+  name: string
+  description: string
+  color: string
 }
 
 const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g
@@ -29,6 +36,10 @@ function getOrCreateSessionId() {
   return id
 }
 
+function getOrCreateModel() {
+  return localStorage.getItem('lorekeeper_model') ?? 'gpt-5-mini-2025-08-07'
+}
+
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -38,6 +49,10 @@ export default function App() {
   const [isFetching, setIsFetching] = useState(false)
   const [nextAllowedAt, setNextAllowedAt] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [models, setModels] = useState<ModelOption[]>([])
+  const [model, setModel] = useState<string>(getOrCreateModel)
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false)
+  const modelDropdownRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   async function loadFetchStatus() {
@@ -52,6 +67,10 @@ export default function App() {
       .then(d => setLastFetched(d.fetched_at))
       .catch(() => {})
     loadFetchStatus().catch(() => {})
+    fetch('/api/models')
+      .then(r => r.json())
+      .then(d => setModels(d))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -73,6 +92,17 @@ export default function App() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  useEffect(() => {
+    if (!modelDropdownOpen) return
+    function handleClickOutside(e: globalThis.MouseEvent) {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
+        setModelDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [modelDropdownOpen])
+
   async function sendMessage() {
     const text = input.trim()
     if (!text || isLoading) return
@@ -90,7 +120,7 @@ export default function App() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, session_id: sessionId }),
+        body: JSON.stringify({ message: text, session_id: sessionId, model }),
       })
 
       const reader = response.body!.getReader()
@@ -171,6 +201,13 @@ export default function App() {
     setMessages([])
   }
 
+  function handleModelChange(value: string, e: MouseEvent) {
+    e.stopPropagation()
+    setModel(value)
+    setModelDropdownOpen(false)
+    localStorage.setItem('lorekeeper_model', value)
+  }
+
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -222,6 +259,36 @@ export default function App() {
       </div>
 
       <div className="input-area">
+        <div className="model-select" ref={modelDropdownRef}>
+          <button
+            className={`model-trigger${modelDropdownOpen ? ' open' : ''}`}
+            style={{ backgroundColor: models.find(m => m.id === model)?.color }}
+            onClick={() => setModelDropdownOpen(o => !o)}
+          >
+            <span className="model-name-sizer">
+              {models.map(m => (
+                <span key={m.id} style={{ visibility: m.id === model ? 'visible' : 'hidden' }}>
+                  {m.name}
+                </span>
+              ))}
+            </span>
+            <span className="model-caret">▾</span>
+          </button>
+          {modelDropdownOpen && (
+            <div className="model-options">
+              {models.map(m => (
+                <div
+                  key={m.id}
+                  className={`model-option${m.id === model ? ' selected' : ''}`}
+                  onClick={e => handleModelChange(m.id, e)}
+                >
+                  <span className="model-option-name">{m.name}</span>
+                  <span className="model-option-desc">{m.description}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <textarea
           value={input}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
