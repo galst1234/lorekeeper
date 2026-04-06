@@ -37,6 +37,7 @@ export default function App() {
   const [lastFetched, setLastFetched] = useState<string | null>(null)
   const [isFetching, setIsFetching] = useState(false)
   const [nextAllowedAt, setNextAllowedAt] = useState<string | null>(null)
+  const [showConfirm, setShowConfirm] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   async function loadFetchStatus() {
@@ -186,9 +187,20 @@ export default function App() {
             Last data update: {new Date(lastFetched).toLocaleString('en-GB', { hour12: true })}
           </span>
         )}
-        <button className="refresh-btn" onClick={refreshData} disabled={!canRefresh}>
+        <button className="refresh-btn" onClick={() => setShowConfirm(true)} disabled={!canRefresh}>
           {isFetching ? 'Refreshing...' : 'Refresh Data'}
         </button>
+        {showConfirm && (
+          <div className="confirm-overlay">
+            <div className="confirm-dialog">
+              <p>⚠️ This will delete all of LoreKeeper's stored data and recreate it from the sources. This process takes a few minutes. Are you sure you want to proceed?</p>
+              <div className="confirm-actions">
+                <button className="confirm-yes" onClick={() => { setShowConfirm(false); refreshData() }}>Yes, refresh</button>
+                <button className="confirm-cancel" onClick={() => setShowConfirm(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
         <button className="clear-btn" onClick={clearChat} disabled={isLoading}>
           Clear Chat
         </button>

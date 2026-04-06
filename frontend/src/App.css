@@ -91,6 +91,70 @@ body {
   cursor: not-allowed;
 }
 
+/* Confirmation dialog */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.confirm-dialog {
+  background: #16141a;
+  border: 1px solid #3a2d1a;
+  border-radius: 8px;
+  padding: 1.75rem 2rem;
+  max-width: 440px;
+  width: 90%;
+  text-align: center;
+  color: #e8e0d0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+.confirm-yes {
+  background: #5a3a10;
+  border: 1px solid #7a5a20;
+  color: #f0d090;
+  padding: 7px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+
+.confirm-yes:hover {
+  background: #7a5a20;
+}
+
+.confirm-cancel {
+  background: transparent;
+  border: 1px solid #5a4030;
+  color: #a08060;
+  padding: 7px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: inherit;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.confirm-cancel:hover {
+  border-color: #c9a84c;
+  color: #c9a84c;
+}
+
 /* Messages */
 .messages {
   flex: 1;
