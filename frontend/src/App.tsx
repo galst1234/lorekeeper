@@ -69,6 +69,7 @@ export default function App() {
   const [reasoningDropdownOpen, setReasoningDropdownOpen] = useState(false)
   const reasoningDropdownRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   async function loadFetchStatus() {
     const d = await fetch('/api/fetch-status').then(r => r.json())
@@ -213,6 +214,7 @@ export default function App() {
       })
     } finally {
       setIsLoading(false)
+      setTimeout(() => inputRef.current?.focus(), 0)
     }
   }
 
@@ -361,6 +363,7 @@ export default function App() {
           </div>
         </div>
         <textarea
+          ref={inputRef}
           value={input}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
