@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { KeyboardEvent, ChangeEvent, MouseEvent } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -292,7 +294,10 @@ export default function App() {
         {messages.map((msg, i) => (
           <div key={i} className={`message ${msg.role} ${msg.error ? 'error' : ''}`}>
             <div className="bubble">
-              {linkify(msg.content)}
+              {msg.role === 'assistant'
+                ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({href, children}) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}>{msg.content}</ReactMarkdown>
+                : linkify(msg.content)
+              }
               {msg.streaming && <span className="cursor">▋</span>}
             </div>
           </div>
