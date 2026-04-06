@@ -6,7 +6,7 @@ from enum import StrEnum
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
-from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.models.openai import OpenAIResponsesModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from config import settings
@@ -20,27 +20,49 @@ class ModelChoice(StrEnum):
     GPT54 = "gpt-5.4-2026-03-05"
 
 
+class ReasoningEffort(StrEnum):
+    NONE = "none"
+    MINIMAL = "minimal"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    XHIGH = "xhigh"
+
+
+REASONING_METADATA: dict[ReasoningEffort, dict[str, str]] = {
+    ReasoningEffort.NONE: {"name": "None", "description": "No reasoning - fastest responses (gpt-5.4 default)"},
+    ReasoningEffort.MINIMAL: {"name": "Minimal", "description": "Very light reasoning pass"},
+    ReasoningEffort.LOW: {"name": "Low", "description": "Light reasoning for simple multi-step questions"},
+    ReasoningEffort.MEDIUM: {"name": "Medium", "description": "Balanced reasoning - model default for gpt-5-mini"},
+    ReasoningEffort.HIGH: {"name": "High", "description": "Deep reasoning for complex lore questions"},
+    ReasoningEffort.XHIGH: {"name": "xHigh", "description": "Maximum reasoning - slowest but most thorough"},
+}
+
+
 MODEL_METADATA: dict[ModelChoice, dict[str, str]] = {
     ModelChoice.GPT5_MINI: {
         "name": "GPT-5 mini",
-        "description": "Fast and efficient — great for everyday lore lookups",
+        "description": "Fast and efficient - great for everyday lore lookups",
         "color": "#16141a",
+        "default_reasoning": ReasoningEffort.MEDIUM,
     },
     ModelChoice.GPT54_MINI: {
         "name": "GPT-5.4 mini",
         "description": "Smarter reasoning for complex or multi-part questions",
         "color": "#7a3a10",
+        "default_reasoning": ReasoningEffort.NONE,
     },
     ModelChoice.GPT54: {
         "name": "GPT-5.4",
-        "description": "Most capable — best for nuanced analysis and deep lore dives",
+        "description": "Most capable - best for nuanced analysis and deep lore dives",
         "color": "#6a1010",
+        "default_reasoning": ReasoningEffort.NONE,
     },
 }
 
 
 def strip_tool_messages(messages: list[ModelMessage]) -> list[ModelMessage]:
-    """Keep only user prompts and final text responses — discard tool calls/returns."""
+    """Keep only user prompts and final text responses - discard tool calls/returns."""
     clean: list[ModelMessage] = []
     for msg in messages:
         if isinstance(msg, ModelRequest):
@@ -61,16 +83,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def build_model(choice: ModelChoice) -> OpenAIResponsesModel:
+    return OpenAIResponsesModel(choice.value, provider=OpenAIProvider(api_key=settings.openai_api_key))
+
+
 def create_agent() -> Agent:
     system_prompt = (
         "You are LoreKeeper, the lore keeper of a Dungeons & Dragons campaign.\n"
         "Answer ONLY from retrieved context. No outside knowledge. No guessing. No making up information.\n"
         f"The ID of the main campaign is {settings.campaign_id}.\n"
         "IDs are 32-character hex strings from Obsidian Portal (found in metadata), NOT names or slugs.\n\n"
-        "EXCEPTION — NO RETRIEVAL NEEDED: If the user is clearly just testing connectivity or greeting you "
+        "EXCEPTION - NO RETRIEVAL NEEDED: If the user is clearly just testing connectivity or greeting you "
         "(e.g. 'hello', 'hi', 'test', 'are you working?', 'ping', etc.), respond briefly and naturally "
         "WITHOUT calling any tools or performing any searches.\n\n"
-        "MANDATORY RETRIEVAL RULES — follow these EVERY time:\n"
+        "MANDATORY RETRIEVAL RULES - follow these EVERY time:\n"
         "1. SEARCH FIRST: Before answering ANY question, call qdrant-find with relevant keywords. "
         "Try multiple search queries with different phrasings to maximize coverage.\n"
         "2. EXPAND INCOMPLETE RESULTS: After qdrant-find, check metadata.chunk_index and metadata.total_chunks "
@@ -113,10 +139,7 @@ def create_agent() -> Agent:
         timeout=60,
     )
 
-    model = OpenAIChatModel(
-        model_name=ModelChoice.GPT5_MINI.value,
-        provider=OpenAIProvider(api_key=settings.openai_api_key),
-    )
+    model = build_model(ModelChoice.GPT5_MINI)
 
     return Agent(
         model=model,

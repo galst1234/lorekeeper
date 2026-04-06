@@ -11,8 +11,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from pydantic_ai.messages import ModelMessage
+from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
-from agent import MAX_HISTORY_MESSAGES, MODEL_METADATA, ModelChoice, create_agent, strip_tool_messages
+from agent import (
+    MAX_HISTORY_MESSAGES,
+    MODEL_METADATA,
+    REASONING_METADATA,
+    ModelChoice,
+    ReasoningEffort,
+    build_model,
+    create_agent,
+    strip_tool_messages,
+)
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -34,11 +44,17 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str = ""
     model: ModelChoice = ModelChoice.GPT5_MINI
+    reasoning_effort: ReasoningEffort = ReasoningEffort.MEDIUM
 
 
 @app.get("/api/models")
 async def get_models() -> list[dict[str, str]]:
     return [{"id": m.value, **MODEL_METADATA[m]} for m in ModelChoice]
+
+
+@app.get("/api/reasoning-levels")
+async def get_reasoning_levels() -> list[dict[str, str]]:
+    return [{"id": r.value, **REASONING_METADATA[r]} for r in ReasoningEffort]
 
 
 @app.get("/api/health")
@@ -115,12 +131,16 @@ async def chat(req: ChatRequest) -> StreamingResponse:
 
     trimmed = history[-MAX_HISTORY_MESSAGES:] if len(history) > MAX_HISTORY_MESSAGES else history
 
+    run_model = build_model(req.model)
+    run_settings = OpenAIResponsesModelSettings(openai_reasoning_effort=req.reasoning_effort.value)
+
     async def event_stream() -> AsyncGenerator[str]:
         try:
             async with agent.run_stream(
                 user_prompt=req.message,
                 message_history=trimmed,
-                model=req.model,
+                model=run_model,
+                model_settings=run_settings,
             ) as stream:
                 async for delta in stream.stream_text(delta=True):
                     yield f"data: {json.dumps({'delta': delta})}\n\n"

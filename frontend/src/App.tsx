@@ -14,6 +14,13 @@ interface ModelOption {
   name: string
   description: string
   color: string
+  default_reasoning: string
+}
+
+interface ReasoningOption {
+  id: string
+  name: string
+  description: string
 }
 
 const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g
@@ -40,6 +47,10 @@ function getOrCreateModel() {
   return localStorage.getItem('lorekeeper_model') ?? 'gpt-5-mini-2025-08-07'
 }
 
+function getOrCreateReasoningEffort() {
+  return localStorage.getItem('lorekeeper_reasoning_effort') ?? 'medium'
+}
+
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -53,6 +64,10 @@ export default function App() {
   const [model, setModel] = useState<string>(getOrCreateModel)
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false)
   const modelDropdownRef = useRef<HTMLDivElement>(null)
+  const [reasoningLevels, setReasoningLevels] = useState<ReasoningOption[]>([])
+  const [reasoningEffort, setReasoningEffort] = useState<string>(getOrCreateReasoningEffort)
+  const [reasoningDropdownOpen, setReasoningDropdownOpen] = useState(false)
+  const reasoningDropdownRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   async function loadFetchStatus() {
@@ -70,6 +85,10 @@ export default function App() {
     fetch('/api/models')
       .then(r => r.json())
       .then(d => setModels(d))
+      .catch(() => {})
+    fetch('/api/reasoning-levels')
+      .then(r => r.json())
+      .then(d => setReasoningLevels(d))
       .catch(() => {})
   }, [])
 
@@ -103,6 +122,17 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [modelDropdownOpen])
 
+  useEffect(() => {
+    if (!reasoningDropdownOpen) return
+    function handleClickOutside(e: globalThis.MouseEvent) {
+      if (reasoningDropdownRef.current && !reasoningDropdownRef.current.contains(e.target as Node)) {
+        setReasoningDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [reasoningDropdownOpen])
+
   async function sendMessage() {
     const text = input.trim()
     if (!text || isLoading) return
@@ -120,7 +150,7 @@ export default function App() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, session_id: sessionId, model }),
+        body: JSON.stringify({ message: text, session_id: sessionId, model, reasoning_effort: reasoningEffort }),
       })
 
       const reader = response.body!.getReader()
@@ -206,6 +236,16 @@ export default function App() {
     setModel(value)
     setModelDropdownOpen(false)
     localStorage.setItem('lorekeeper_model', value)
+    const defaultReasoning = models.find(m => m.id === value)?.default_reasoning ?? 'medium'
+    setReasoningEffort(defaultReasoning)
+    localStorage.setItem('lorekeeper_reasoning_effort', defaultReasoning)
+  }
+
+  function handleReasoningChange(value: string, e: MouseEvent) {
+    e.stopPropagation()
+    setReasoningEffort(value)
+    setReasoningDropdownOpen(false)
+    localStorage.setItem('lorekeeper_reasoning_effort', value)
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -259,35 +299,66 @@ export default function App() {
       </div>
 
       <div className="input-area">
-        <div className="model-select" ref={modelDropdownRef}>
-          <button
-            className={`model-trigger${modelDropdownOpen ? ' open' : ''}`}
-            style={{ backgroundColor: models.find(m => m.id === model)?.color }}
-            onClick={() => setModelDropdownOpen(o => !o)}
-          >
-            <span className="model-name-sizer">
-              {models.map(m => (
-                <span key={m.id} style={{ visibility: m.id === model ? 'visible' : 'hidden' }}>
-                  {m.name}
-                </span>
-              ))}
-            </span>
-            <span className="model-caret">▾</span>
-          </button>
-          {modelDropdownOpen && (
-            <div className="model-options">
-              {models.map(m => (
-                <div
-                  key={m.id}
-                  className={`model-option${m.id === model ? ' selected' : ''}`}
-                  onClick={e => handleModelChange(m.id, e)}
-                >
-                  <span className="model-option-name">{m.name}</span>
-                  <span className="model-option-desc">{m.description}</span>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="selector-stack">
+          <div className="model-select" ref={modelDropdownRef}>
+            <button
+              className={`model-trigger${modelDropdownOpen ? ' open' : ''}`}
+              style={{ backgroundColor: models.find(m => m.id === model)?.color }}
+              onClick={() => setModelDropdownOpen(o => !o)}
+            >
+              <span className="model-name-sizer">
+                {models.map(m => (
+                  <span key={m.id} style={{ visibility: m.id === model ? 'visible' : 'hidden' }}>
+                    {m.name}
+                  </span>
+                ))}
+              </span>
+              <span className="model-caret">▾</span>
+            </button>
+            {modelDropdownOpen && (
+              <div className="model-options">
+                {models.map(m => (
+                  <div
+                    key={m.id}
+                    className={`model-option${m.id === model ? ' selected' : ''}`}
+                    onClick={e => handleModelChange(m.id, e)}
+                  >
+                    <span className="model-option-name">{m.name}</span>
+                    <span className="model-option-desc">{m.description}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="reasoning-select" ref={reasoningDropdownRef}>
+            <button
+              className={`reasoning-trigger${reasoningDropdownOpen ? ' open' : ''}`}
+              onClick={() => setReasoningDropdownOpen(o => !o)}
+            >
+              <span className="reasoning-name-sizer">
+                {reasoningLevels.map(r => (
+                  <span key={r.id} style={{ visibility: r.id === reasoningEffort ? 'visible' : 'hidden' }}>
+                    {r.name}
+                  </span>
+                ))}
+              </span>
+              <span className="reasoning-caret">▾</span>
+            </button>
+            {reasoningDropdownOpen && (
+              <div className="reasoning-options">
+                {reasoningLevels.map(r => (
+                  <div
+                    key={r.id}
+                    className={`reasoning-option${r.id === reasoningEffort ? ' selected' : ''}`}
+                    onClick={e => handleReasoningChange(r.id, e)}
+                  >
+                    <span className="reasoning-option-name">{r.name}</span>
+                    <span className="reasoning-option-desc">{r.description}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <textarea
           value={input}
