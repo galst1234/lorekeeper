@@ -5,7 +5,7 @@ from enum import StrEnum
 
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
-from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
+from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, ThinkingPart, UserPromptPart
 from pydantic_ai.models.openai import OpenAIResponsesModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
@@ -70,9 +70,9 @@ def strip_tool_messages(messages: list[ModelMessage]) -> list[ModelMessage]:
             if user_parts:
                 clean.append(ModelRequest(parts=user_parts))
         elif isinstance(msg, ModelResponse):
-            text_parts = [p for p in msg.parts if isinstance(p, TextPart)]
-            if text_parts:
-                clean.append(ModelResponse(parts=text_parts, model_name=msg.model_name, timestamp=msg.timestamp))
+            kept_parts = [p for p in msg.parts if isinstance(p, (TextPart, ThinkingPart))]
+            if kept_parts:
+                clean.append(ModelResponse(parts=kept_parts, model_name=msg.model_name, timestamp=msg.timestamp))
     return clean
 
 
