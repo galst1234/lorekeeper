@@ -14,10 +14,13 @@ from obsidian_portal.api import (
     update_quest,
 )
 from obsidian_portal.auth import get_authenticated_session_async
+from obsidian_portal.calendar_api import add_calendar_entry, fetch_calendar_entries
+from obsidian_portal.calendar_parser import CalendarDate
 from obsidian_portal.models import Character, CharacterRequest, Page, Quest, QuestStatus, QuestType
 
 _CAMPAIGN_ID = settings.campaign_id
 _QUEST_LOG_PAGE_ID = settings.quest_log_page_id
+_CALENDAR_PAGE_ID = settings.calendar_page_id
 
 mcp = FastMCP(
     name="obsidian-portal",
@@ -284,6 +287,130 @@ async def update_quest_tool(  # noqa: PLR0913, PLR0917
         new_quest_type=new_quest_type,
     )
     return f"Quest '{title}' updated: {summary}"
+
+
+@mcp.tool(tags={"WikiPage", "Calendar"})
+async def fetch_calendar_entries_tool(  # noqa: PLR0913, PLR0917
+    start_year: int,
+    start_month_or_special_day: str,
+    start_day: int | None = None,
+    end_year: int | None = None,
+    end_month_or_special_day: str | None = None,
+    end_day: int | None = None,
+    campaign_id: str = _CAMPAIGN_ID,
+    page_id: str = _CALENDAR_PAGE_ID,
+) -> list[tuple[CalendarDate, list[str]]]:
+    """
+    Fetch adventure log summaries recorded on the campaign calendar.
+
+    For a single regular day:
+      - start_month_or_special_day = month name (e.g. "Kythorn")
+      - start_day = day number (1-30)
+
+    For a single special day (falls between months, not inside them):
+      - start_month_or_special_day = special day name (see list below)
+      - start_day = omit
+
+    For a date range: also provide end_year, end_month_or_special_day, and
+    end_day (omit end_day for a special day end).
+
+    Special days: "Midwinter" (between Hammer and Alturiak),
+                  "Greengrass" (between Tarsakh and Mirtul),
+                  "Midsummer" (between Flamerule and Eleasis),
+                  "Shieldmeet" (day after Midsummer, once every 4 years: 0, 4 ... 1372, 1376 ...),
+                  "Highharvestide" (between Eleint and Marpenoth),
+                  "Feast of the Moon" (between Uktar and Nightal)
+
+    Args:
+        start_year (int): Year of the start date.
+        start_month_or_special_day (str): Month name or special day name for the start date.
+        start_day (int | None): Day number (1-30) for a regular month start; omit for special days.
+        end_year (int | None): Year of the end date; omit for a single-date query.
+        end_month_or_special_day (str | None): Month or special day for the end date; omit for single-date.
+        end_day (int | None): Day number for end date if it is a regular month; omit for special days.
+        campaign_id (str): The campaign ID - pre-filled, do not supply.
+        page_id (str): The Calendar wiki page ID - pre-filled, do not supply.
+
+    Returns:
+        list of (CalendarDate, [summary_titles]) for every date in the range that has entries.
+    """
+    session = await _get_session()
+    start = CalendarDate(year=start_year, month_or_special_day=start_month_or_special_day, day=start_day)
+    end: CalendarDate | None = None
+    if end_year is not None and end_month_or_special_day is not None:
+        end = CalendarDate(year=end_year, month_or_special_day=end_month_or_special_day, day=end_day)
+    return await fetch_calendar_entries(session, start, end, campaign_id=campaign_id, page_id=page_id)
+
+
+@mcp.tool(tags={"WikiPage", "Calendar"})
+async def add_calendar_entry_tool(  # noqa: PLR0913, PLR0917
+    month_or_special_day: str,
+    summary_title: str,
+    day: int | None = None,
+    year: int | None = None,
+    campaign_id: str = _CAMPAIGN_ID,
+    page_id: str = _CALENDAR_PAGE_ID,
+) -> str:
+    """
+    Add an adventure log summary link to a specific date on the campaign calendar.
+
+    The link is recorded as [[summary_title | summary_title]] on the given date.
+    Multiple summaries can share the same date - they are appended, not overwritten.
+    If the month or special day does not yet exist in the calendar, it is created automatically.
+    Always add to the first in-game day of the summary's events.
+
+    For a regular month day:
+      - month_or_special_day = month name (e.g. "Kythorn")
+      - day = day number (1-30)
+
+    For a special day (falls between months, not inside them):
+      - month_or_special_day = the special day name exactly as listed below
+      - day = omit (leave as None)
+
+    Special days: "Midwinter" (between Hammer and Alturiak),
+                  "Greengrass" (between Tarsakh and Mirtul),
+                  "Midsummer" (between Flamerule and Eleasis),
+                  "Shieldmeet" (day after Midsummer, once every 4 years: 0, 4 ... 1372, 1376 ...),
+                  "Highharvestide" (between Eleint and Marpenoth),
+                  "Feast of the Moon" (between Uktar and Nightal)
+
+    IMPORTANT: NEVER ask the user for the in-game date. Before calling this tool:
+    1. Fetch the summary's wiki page using fetch_wiki_page_tool (use qdrant-find to locate
+       the page ID by title if you do not already have it).
+    2. Read the page body to identify the first in-game date of the session (month, day,
+       and year in the Forgotten Realms Calendar of Harptos).
+       If the summary does not explicitly state a year, assume the most recent year in the calendar.
+    3. Show the user ONE confirmation line in exactly this form and wait for explicit approval
+       (a clear "yes", "confirm", "ok", or equivalent) before proceeding:
+         "Add <title> to <month_or_special_day> <day>, <year>?"
+    4. Only call this tool after receiving that explicit approval.
+    Do NOT treat a menu choice or year selection as confirmation - always show the final resolved
+    entry and require a separate explicit "yes" before calling the tool.
+
+    Args:
+        month_or_special_day (str): Month name or special day name.
+        summary_title (str): The exact title of the adventure log summary wiki page.
+        day (int | None): Day number (1-30) for a regular month; omit for special days.
+        year (int | None): Year to add the entry to. If omitted, uses the most recent year
+            present in the calendar - only supply when adding to a past year.
+        campaign_id (str): The campaign ID - pre-filled, do not supply.
+        page_id (str): The Calendar wiki page ID - pre-filled, do not supply.
+
+    Returns:
+        str: Confirmation message with the date the entry was added to.
+    """
+    session = await _get_session()
+    resolved_year = await add_calendar_entry(
+        session,
+        month_or_special_day=month_or_special_day,
+        day=day,
+        title=summary_title,
+        year=year,
+        campaign_id=campaign_id,
+        page_id=page_id,
+    )
+    day_str = f" {day}" if day is not None else ""
+    return f"Added '[[{summary_title} | {summary_title}]]' to {month_or_special_day}{day_str}, {resolved_year}."
 
 
 @mcp.tool()

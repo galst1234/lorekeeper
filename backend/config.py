@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     authorize_url: str
     campaign_id: str
     quest_log_page_id: str
+    calendar_page_id: str
 
     # Qdrant
     qdrant_url: str
