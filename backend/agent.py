@@ -99,7 +99,7 @@ class LoreKeeperAgent:
         message: str,
         *,
         model: OpenAIResponsesModel,
-        settings: OpenAIResponsesModelSettings,
+        model_settings: OpenAIResponsesModelSettings,
     ) -> AsyncIterator[Any]:
         """Handle skill detection, system prompt injection, run, history update, and completion detection."""
         # 1. Detect skill command
@@ -129,7 +129,7 @@ class LoreKeeperAgent:
             user_prompt=user_prompt,
             message_history=trimmed,
             model=model,
-            model_settings=settings,
+            model_settings=model_settings,
             instructions=instructions,
         ) as stream:
             yield stream

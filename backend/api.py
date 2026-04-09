@@ -132,7 +132,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
                 session_id,
                 req.message,
                 model=run_model,
-                settings=run_settings,
+                model_settings=run_settings,
             ) as stream:
                 async for delta in stream.stream_text(delta=True):
                     yield f"data: {json.dumps({'delta': delta})}\n\n"
