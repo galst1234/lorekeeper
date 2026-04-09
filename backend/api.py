@@ -17,9 +17,9 @@ from agent import (
     MAX_HISTORY_MESSAGES,
     MODEL_METADATA,
     REASONING_METADATA,
-    SYSTEM_PROMPT,
     ModelChoice,
     ReasoningEffort,
+    agent_stream,
     build_model,
     create_agent,
     strip_tool_messages,
@@ -137,12 +137,12 @@ async def chat(req: ChatRequest) -> StreamingResponse:
 
     async def event_stream() -> AsyncGenerator[str]:
         try:
-            async with agent.run_stream(
-                user_prompt=req.message,
-                message_history=trimmed,
+            async with agent_stream(
+                agent,
+                req.message,
+                history=trimmed,
                 model=run_model,
-                model_settings=run_settings,
-                instructions=SYSTEM_PROMPT,
+                settings=run_settings,
             ) as stream:
                 async for delta in stream.stream_text(delta=True):
                     yield f"data: {json.dumps({'delta': delta})}\n\n"
