@@ -25,18 +25,27 @@ def chores_skill(args: str) -> str:
     if not title:
         return "Usage: /chores <Adventure Log Title>"
     return (
-        f'You are processing the adventure log entry titled "{title}". '
-        "Follow these steps in sequence. Use the standard verify-confirm-execute pattern "
-        "for each write operation. Do not skip any step.\n\n"
+        f'You are running the chores workflow for the adventure log titled "{title}". '
+        f'Do NOT ask the user which page to process — it is already specified as "{title}". '
+        "Complete all 5 steps below in order for this exact page. "
+        "Regardless of how many confirmation turns occur, always continue with the next pending step. "
+        f"After any user interaction, state \"Continuing chores for '{title}'\" and proceed. "
+        "When the user explicitly approves a proposed action (replies 'yes' or equivalent), "
+        "that approval covers execution — do not re-ask for confirmation inside the tool call; "
+        "proceed directly to calling the tool.\n\n"
+        'After each step completes, announce "✓ Step N complete — moving to Step N+1" '
+        "and immediately begin the next step (unless that step requires a confirmation).\n\n"
         "**Step 1 — Fetch the page**\n"
         f'Call `fetch_wiki_pages_tool` to find the page with title "{title}". '
         "Then call `fetch_wiki_page_tool` with the resolved page ID to get the full body text.\n\n"
         "**Step 2 — Character check**\n"
         "Call `fetch_characters_tool` to get all known characters. Scan the adventure log body "
-        "for named characters. For each character mentioned in the text that does NOT appear in "
-        "the known characters list, follow the `create_character_tool` workflow: verify the "
-        "character does not exist, show the user the proposed name and any inferred details, "
-        "wait for explicit approval, then create.\n\n"
+        "for named characters. For each name not found in the character list: "
+        "search `qdrant-find` using that name to gather all mentions across campaign content "
+        "(full name, role, bio details, relationships). "
+        "Compile everything found into ONE complete proposal per character "
+        "(name, description, bio, tagline, tags) — do not propose a stub and refine later. "
+        "Present all proposals together, wait for approval, then create each approved character.\n\n"
         "**Step 3 — Link injection**\n"
         "Call `inject_adventure_log_links_tool` with the page ID. Show the user the proposed "
         "links, wait for explicit approval, then inject.\n\n"
@@ -48,6 +57,6 @@ def chores_skill(args: str) -> str:
         "Call `fetch_quests_tool` to get the current quest log. Based on the adventure log body, "
         "identify new quests that started this session (call `create_quest_tool` for each) and "
         "existing quests with progress or status changes (call `update_quest_tool` for each). "
-        "Follow the standard confirmation pattern for each quest change.\n\n"
-        "After completing all steps, provide a brief summary of everything that was created or updated."
+        "Show the user all proposed quest changes together, wait for approval, then execute.\n\n"
+        "After completing all 5 steps, provide a brief summary of everything that was created or updated."
     )
