@@ -12,7 +12,7 @@ from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, Text
 from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 
-import skills as _skills
+import skills
 from config import settings
 
 MAX_HISTORY_MESSAGES = 20
@@ -89,7 +89,7 @@ def preprocess_message(message: str) -> str:
         return message
     skill_name = parts[0]
     args = parts[1] if len(parts) > 1 else ""
-    return _skills.dispatch(skill_name, args)
+    return skills.dispatch(skill_name, args)
 
 
 @asynccontextmanager
