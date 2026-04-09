@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 from fastmcp import FastMCP
 from requests_oauthlib import OAuth1Session
@@ -11,12 +12,17 @@ from obsidian_portal.api import (
     fetch_characters,
     fetch_quests,
     fetch_wiki_page,
+    fetch_wiki_pages,
     update_quest,
+    update_wiki_page,
 )
 from obsidian_portal.auth import get_authenticated_session_async
 from obsidian_portal.calendar_api import add_calendar_entry, fetch_calendar_entries
 from obsidian_portal.calendar_parser import CalendarDate
-from obsidian_portal.models import Character, CharacterRequest, Page, Quest, QuestStatus, QuestType
+from obsidian_portal.models import Character, CharacterRequest, Page, PageSummary, Quest, QuestStatus, QuestType
+
+_WIKI_LINK_REGEX = re.compile(r"\[\[.*?]]", re.DOTALL)
+
 
 _CAMPAIGN_ID = settings.campaign_id
 _QUEST_LOG_PAGE_ID = settings.quest_log_page_id
@@ -43,20 +49,23 @@ async def _get_session() -> OAuth1Session:
     return _session
 
 
-# @mcp.tool(tags={"WikiPage", "Post"})
-# async def fetch_wiki_pages(campaign_id: str) -> list[Page]:
-#     """
-#     Fetch wiki pages from Obsidian Portal for the specified campaign ID.
-#
-#     Args:
-#         campaign_id (str): The ID of the campaign to fetch wiki pages from.
-#
-#     Returns:
-#         list[Page]: A list of wiki pages.
-#     """
-#
-#     session = await _get_session()
-#     return await fetcher_fetch_wiki_pages(session, campaign_id)
+@mcp.tool(tags={"WikiPage", "Post"})
+async def fetch_wiki_pages_tool(campaign_id: str = _CAMPAIGN_ID) -> list[PageSummary]:
+    """
+    Fetch a summary of all wiki pages in the campaign (id, slug, title, tags).
+
+    Use this to build an entity catalog for link resolution. Bodies are excluded —
+    use `fetch_wiki_page_tool` if you need the full content of a specific page.
+
+    Args:
+        campaign_id (str): The campaign ID — pre-filled, do not supply.
+
+    Returns:
+        list[PageSummary]: All wiki pages with id, slug, title, tags, and gm_only flag.
+    """
+    session = await _get_session()
+    pages = await fetch_wiki_pages(session, campaign_id)
+    return [PageSummary.model_validate(p.model_dump(by_alias=False)) for p in pages]
 
 
 @mcp.tool(tags={"WikiPage", "Post"})
@@ -77,6 +86,88 @@ async def fetch_wiki_page_tool(page_id: str, campaign_id: str = _CAMPAIGN_ID) ->
     """
     session = await _get_session()
     return await fetch_wiki_page(session, campaign_id, page_id)
+
+
+@mcp.tool(tags={"WikiPage", "AdventureLog"})
+async def inject_adventure_log_links_tool(
+    page_id: str,
+    entity_links: dict[str, str],
+    campaign_id: str = _CAMPAIGN_ID,
+) -> str:
+    """
+    Inject wiki-link syntax into an adventure log entry for the first appearance of each entity.
+
+    Only the first occurrence of each mention is linked. Entities already linked anywhere
+    in the text are skipped entirely. No other changes are made to the text.
+
+    IMPORTANT: Before calling this tool you MUST:
+    1. Call `fetch_characters_tool` to get all characters with their slugs.
+    2. Call `fetch_wiki_pages_tool` to get all wiki pages with their titles.
+    3. Call `fetch_wiki_page_tool(page_id)` to get the adventure log entry body.
+    4. Analyze the body text against the entity catalog. For each entity whose name (or a
+       shortened/informal form of it) appears in the text, record:
+       - mention_text: the EXACT substring as it appears in the entry
+       - target: ":slug" for characters, "Page Title" for pages
+    5. Show the user the planned links in a concise list:
+         "mention_text" → wiki-link
+       and ask for explicit confirmation before proceeding.
+    6. Only call this tool after receiving explicit approval.
+
+    Args:
+        page_id (str): The ID of the adventure log wiki page to update.
+        entity_links (dict[str, str]): Mapping of exact mention text (as it appears in the
+            entry) to the bare link target — do NOT include [[ or ]].
+            Use ":slug" for characters, "Page Title" for pages.
+            The tool builds the [[...]] syntax itself. Example:
+            {"Allandra": ":allandra-grey",
+             "the inn": "The Rusty Flagon",
+             "Steel Dragon": "Steel Dragon inn, the"}
+        campaign_id (str): The campaign ID — pre-filled, do not supply.
+
+    Returns:
+        str: Summary of links applied and any skipped entities.
+    """
+    session = await _get_session()
+    page = await fetch_wiki_page(session, campaign_id, page_id)
+    body = page.body
+
+    applied: list[str] = []
+    skipped: list[str] = []
+
+    for mention, raw_target in entity_links.items():
+        # Strip [[...]] if GPT accidentally included them
+        target = raw_target.strip().removeprefix("[[").removesuffix("]]")
+        link = f"[[{target} | {mention}]]"
+
+        already_linked = bool(
+            re.search(r"\[\[.*?" + re.escape(mention) + r".*?]]", body, re.IGNORECASE | re.DOTALL)
+            or re.search(r"\[\[.*?" + re.escape(target.lstrip(":")) + r".*?]]", body, re.IGNORECASE | re.DOTALL),
+        )
+        if already_linked:
+            skipped.append(mention)
+            continue
+
+        protected = [(m.start(), m.end()) for m in _WIKI_LINK_REGEX.finditer(body)]
+        mention_re = re.compile(r"\b" + re.escape(mention) + r"\b", re.IGNORECASE)
+        replaced = False
+        for match in mention_re.finditer(body):
+            if not any(start <= match.start() < end for start, end in protected):
+                body = body[: match.start()] + link + body[match.end() :]
+                applied.append(f'"{mention}" → {link}')
+                replaced = True
+                break
+        if not replaced:
+            skipped.append(mention)
+
+    if not applied:
+        return "No links were applied. Entities may already be linked or not found in text."
+
+    await update_wiki_page(session, campaign_id, page_id, body=body)
+
+    result = f"Applied {len(applied)} link(s):\n" + "\n".join(applied)
+    if skipped:
+        result += f"\n\nSkipped (already linked or not found): {', '.join(skipped)}"
+    return result
 
 
 @mcp.tool(tags={"Character"})

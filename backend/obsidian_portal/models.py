@@ -75,6 +75,16 @@ class Character(Document):
         return metadata
 
 
+class PageSummary(BaseModel):
+    """Lightweight page representation for catalog/discovery — no body content."""
+
+    id: str
+    slug: str
+    title: str
+    tags: list[str]
+    gm_only: bool
+
+
 class CharacterRequest(BaseModel):
     name: str
     description: str | None = None
