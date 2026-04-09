@@ -10,19 +10,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
 from agent import (
-    MAX_HISTORY_MESSAGES,
     MODEL_METADATA,
     REASONING_METADATA,
-    SYSTEM_PROMPT,
+    LoreKeeperAgent,
     ModelChoice,
     ReasoningEffort,
     build_model,
-    create_agent,
-    strip_tool_messages,
 )
 from config import settings
 
@@ -37,8 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-agent = create_agent()
-sessions: dict[str, list[ModelMessage]] = {}
+agent = LoreKeeperAgent()
 
 
 class ChatRequest(BaseModel):
@@ -128,27 +123,19 @@ async def trigger_fetch() -> dict[str, str]:
 @app.post("/api/chat")
 async def chat(req: ChatRequest) -> StreamingResponse:
     session_id = req.session_id or str(uuid.uuid4())
-    history = sessions.get(session_id, [])
-
-    trimmed = history[-MAX_HISTORY_MESSAGES:] if len(history) > MAX_HISTORY_MESSAGES else history
-
     run_model = build_model(req.model)
     run_settings = OpenAIResponsesModelSettings(openai_reasoning_effort=req.reasoning_effort.value)
 
     async def event_stream() -> AsyncGenerator[str]:
         try:
-            async with agent.run_stream(
-                user_prompt=req.message,
-                message_history=trimmed,
+            async with agent.chat_stream(
+                session_id,
+                req.message,
                 model=run_model,
                 model_settings=run_settings,
-                instructions=SYSTEM_PROMPT,
             ) as stream:
                 async for delta in stream.stream_text(delta=True):
                     yield f"data: {json.dumps({'delta': delta})}\n\n"
-
-                new_history = strip_tool_messages(stream.all_messages())
-                sessions[session_id] = new_history
 
         except Exception as e:
             logger.error(f"Stream error: {e}", exc_info=True)
@@ -161,5 +148,5 @@ async def chat(req: ChatRequest) -> StreamingResponse:
 
 @app.delete("/api/session/{session_id}")
 async def delete_session(session_id: str) -> dict[str, str]:
-    sessions.pop(session_id, None)
+    agent.clear_session(session_id)
     return {"status": "cleared"}

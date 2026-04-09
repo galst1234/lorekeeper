@@ -1,14 +1,18 @@
 import asyncio
 import logging
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from enum import StrEnum
+from typing import Any
 
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, ThinkingPart, UserPromptPart
-from pydantic_ai.models.openai import OpenAIResponsesModel
+from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 
+import skills
 from config import settings
 
 MAX_HISTORY_MESSAGES = 20
@@ -74,6 +78,77 @@ def strip_tool_messages(messages: list[ModelMessage]) -> list[ModelMessage]:
             if kept_parts:
                 clean.append(ModelResponse(parts=kept_parts, model_name=msg.model_name, timestamp=msg.timestamp))
     return clean
+
+
+class LoreKeeperAgent:
+    """Agent that owns session history and active skill state."""
+
+    def __init__(self) -> None:
+        self._agent: Agent = create_agent()
+        self._sessions: dict[str, list[ModelMessage]] = {}
+        self._active_skills: dict[str, str] = {}
+
+    def clear_session(self, session_id: str) -> None:
+        self._sessions.pop(session_id, None)
+        self._active_skills.pop(session_id, None)
+
+    def _resolve_user_prompt(self, session_id: str, message: str) -> str:
+        """Detect /skill commands, activate skill if valid, return the user prompt to send."""
+        if not message.startswith("/"):
+            return message
+        parts = message[1:].split(None, 1)
+        if not parts:
+            return message
+        skill_name = parts[0]
+        args = parts[1] if len(parts) > 1 else ""
+        result = skills.dispatch(skill_name, args)
+        if result.startswith(("Unknown skill:", "Usage:")):
+            return result
+        self._active_skills[session_id] = result
+        return f"Start the {skill_name} workflow for: {args}"
+
+    def _build_instructions(self, session_id: str) -> str:
+        """Return system prompt, with active skill injected if one is running."""
+        active = self._active_skills.get(session_id)
+        return f"{SYSTEM_PROMPT}\n\n---\n\n{active}" if active else SYSTEM_PROMPT
+
+    def _get_history(self, session_id: str) -> list[ModelMessage] | None:
+        """Return trimmed message history for this session."""
+        history = self._sessions.get(session_id)
+        return history[-MAX_HISTORY_MESSAGES:] if history and len(history) > MAX_HISTORY_MESSAGES else history
+
+    def _finalize(self, session_id: str, messages: list[ModelMessage]) -> None:
+        """Update history and clear active skill if [SKILL_COMPLETE] is in the last response."""
+        self._sessions[session_id] = strip_tool_messages(messages)
+        if session_id not in self._active_skills:
+            return
+        last = self._sessions[session_id][-1] if self._sessions[session_id] else None
+        if isinstance(last, ModelResponse) and any(
+            "[SKILL_COMPLETE]" in str(p.content) for p in last.parts if isinstance(p, (TextPart, ThinkingPart))
+        ):
+            self._active_skills.pop(session_id, None)
+
+    @asynccontextmanager
+    async def chat_stream(
+        self,
+        session_id: str,
+        message: str,
+        *,
+        model: OpenAIResponsesModel,
+        model_settings: OpenAIResponsesModelSettings,
+    ) -> AsyncIterator[Any]:
+        """Stream a chat response, handling skill dispatch and history management."""
+        async with self._agent.run_stream(
+            user_prompt=self._resolve_user_prompt(session_id, message),
+            message_history=self._get_history(session_id),
+            model=model,
+            model_settings=model_settings,
+            instructions=self._build_instructions(session_id),
+        ) as stream:
+            try:
+                yield stream
+            finally:
+                self._finalize(session_id, stream.all_messages())
 
 
 logging.basicConfig(
