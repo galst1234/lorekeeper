@@ -1,14 +1,18 @@
 import asyncio
 import logging
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from enum import StrEnum
+from typing import Any
 
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, ThinkingPart, UserPromptPart
-from pydantic_ai.models.openai import OpenAIResponsesModel
+from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 
+import skills as _skills
 from config import settings
 
 MAX_HISTORY_MESSAGES = 20
@@ -74,6 +78,39 @@ def strip_tool_messages(messages: list[ModelMessage]) -> list[ModelMessage]:
             if kept_parts:
                 clean.append(ModelResponse(parts=kept_parts, model_name=msg.model_name, timestamp=msg.timestamp))
     return clean
+
+
+def preprocess_message(message: str) -> str:
+    """Expand /skill commands into full instruction prompts; pass other messages through unchanged."""
+    if not message.startswith("/"):
+        return message
+    parts = message[1:].split(None, 1)
+    if not parts:
+        return message
+    skill_name = parts[0]
+    args = parts[1] if len(parts) > 1 else ""
+    return _skills.dispatch(skill_name, args)
+
+
+@asynccontextmanager
+async def agent_stream(
+    agent: Agent,
+    message: str,
+    *,
+    history: list[ModelMessage] | None,
+    model: OpenAIResponsesModel,
+    settings: OpenAIResponsesModelSettings,
+) -> AsyncIterator[Any]:
+    """Preprocess message (expanding /skills) then stream agent response."""
+    user_prompt = preprocess_message(message)
+    async with agent.run_stream(
+        user_prompt=user_prompt,
+        message_history=history,
+        model=model,
+        model_settings=settings,
+        instructions=SYSTEM_PROMPT,
+    ) as stream:
+        yield stream
 
 
 logging.basicConfig(
