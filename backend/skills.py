@@ -50,13 +50,18 @@ def chores_skill(args: str) -> str:
         "Call `inject_adventure_log_links_tool` with the page ID. Show the user the proposed "
         "links, wait for explicit approval, then inject.\n\n"
         "**Step 4 — Calendar entry**\n"
-        "Extract the in-game date from the adventure log body. Call `add_calendar_entry_tool` "
-        f'with the resolved date and the title "{title}". Show the user the proposed calendar '
-        "entry, wait for explicit approval, then add.\n\n"
+        "Extract the in-game date from the adventure log body. "
+        "Call `fetch_calendar_entries_tool` for that date to check whether the entry already exists. "
+        f'If "{title}" is already listed on that date, announce "Step 4 skipped — already on calendar" '
+        "and move to Step 5. Otherwise show the user the proposed entry "
+        f'("Add {title} to <Month> <day>, <year>?"), wait for explicit approval, then add.\n\n'
         "**Step 5 — Quest log**\n"
-        "Call `fetch_quests_tool` to get the current quest log. Based on the adventure log body, "
-        "identify new quests that started this session (call `create_quest_tool` for each) and "
-        "existing quests with progress or status changes (call `update_quest_tool` for each). "
-        "Show the user all proposed quest changes together, wait for approval, then execute.\n\n"
+        "Call `fetch_quests_tool` to get the current quest log. "
+        "For each topic suggested by the adventure log, search `qdrant-find` for semantically related "
+        "existing quests before proposing anything — a new topic may already be covered by an existing quest "
+        "under a different name. Only propose creating a quest if no existing quest covers it. "
+        "Only propose updating a quest if the session adds meaningful new information not already in it. "
+        "If nothing needs to change, state that clearly and skip. "
+        "Otherwise show the user all proposed changes together, wait for approval, then execute.\n\n"
         "After completing all 5 steps, provide a brief summary of everything that was created or updated."
     )
