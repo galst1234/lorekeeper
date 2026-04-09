@@ -92,6 +92,42 @@ class LoreKeeperAgent:
         self._sessions.pop(session_id, None)
         self._active_skills.pop(session_id, None)
 
+    def _resolve_user_prompt(self, session_id: str, message: str) -> str:
+        """Detect /skill commands, activate skill if valid, return the user prompt to send."""
+        if not message.startswith("/"):
+            return message
+        parts = message[1:].split(None, 1)
+        if not parts:
+            return message
+        skill_name = parts[0]
+        args = parts[1] if len(parts) > 1 else ""
+        result = skills.dispatch(skill_name, args)
+        if result.startswith(("Unknown skill:", "Usage:")):
+            return result
+        self._active_skills[session_id] = result
+        return f"Start the {skill_name} workflow for: {args}"
+
+    def _build_instructions(self, session_id: str) -> str:
+        """Return system prompt, with active skill injected if one is running."""
+        active = self._active_skills.get(session_id)
+        return f"{SYSTEM_PROMPT}\n\n---\n\n{active}" if active else SYSTEM_PROMPT
+
+    def _get_history(self, session_id: str) -> list[ModelMessage] | None:
+        """Return trimmed message history for this session."""
+        history = self._sessions.get(session_id)
+        return history[-MAX_HISTORY_MESSAGES:] if history and len(history) > MAX_HISTORY_MESSAGES else history
+
+    def _finalize(self, session_id: str, messages: list[ModelMessage]) -> None:
+        """Update history and clear active skill if [SKILL_COMPLETE] is in the last response."""
+        self._sessions[session_id] = strip_tool_messages(messages)
+        if session_id not in self._active_skills:
+            return
+        last = self._sessions[session_id][-1] if self._sessions[session_id] else None
+        if isinstance(last, ModelResponse) and any(
+            "[SKILL_COMPLETE]" in str(p.content) for p in last.parts if isinstance(p, (TextPart, ThinkingPart))
+        ):
+            self._active_skills.pop(session_id, None)
+
     @asynccontextmanager
     async def chat_stream(
         self,
@@ -101,49 +137,16 @@ class LoreKeeperAgent:
         model: OpenAIResponsesModel,
         model_settings: OpenAIResponsesModelSettings,
     ) -> AsyncIterator[Any]:
-        """Handle skill detection, system prompt injection, run, history update, and completion detection."""
-        # 1. Detect skill command
-        user_prompt = message
-        if message.startswith("/"):
-            parts = message[1:].split(None, 1)
-            if parts:
-                skill_name = parts[0]
-                args = parts[1] if len(parts) > 1 else ""
-                result = skills.dispatch(skill_name, args)
-                if result.startswith(("Unknown skill:", "Usage:")):
-                    user_prompt = result
-                else:
-                    self._active_skills[session_id] = result
-                    user_prompt = f"Start the {skill_name} workflow for: {args}"
-
-        # 2. Inject active skill into system prompt
-        active = self._active_skills.get(session_id)
-        instructions = f"{SYSTEM_PROMPT}\n\n---\n\n{active}" if active else SYSTEM_PROMPT
-
-        # 3. Trimmed history
-        history = self._sessions.get(session_id)
-        trimmed = history[-MAX_HISTORY_MESSAGES:] if history and len(history) > MAX_HISTORY_MESSAGES else history
-
-        # 4. Run
+        """Stream a chat response, handling skill dispatch and history management."""
         async with self._agent.run_stream(
-            user_prompt=user_prompt,
-            message_history=trimmed,
+            user_prompt=self._resolve_user_prompt(session_id, message),
+            message_history=self._get_history(session_id),
             model=model,
             model_settings=model_settings,
-            instructions=instructions,
+            instructions=self._build_instructions(session_id),
         ) as stream:
             yield stream
-
-        # 5. Update history
-        self._sessions[session_id] = strip_tool_messages(stream.all_messages())
-
-        # 6. Detect [SKILL_COMPLETE] in last response — clear active skill
-        if session_id in self._active_skills:
-            last = self._sessions[session_id][-1] if self._sessions[session_id] else None
-            if isinstance(last, ModelResponse) and any(
-                "[SKILL_COMPLETE]" in str(p.content) for p in last.parts if isinstance(p, (TextPart, ThinkingPart))
-            ):
-                self._active_skills.pop(session_id, None)
+        self._finalize(session_id, stream.all_messages())
 
 
 logging.basicConfig(
