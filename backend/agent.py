@@ -145,8 +145,10 @@ class LoreKeeperAgent:
             model_settings=model_settings,
             instructions=self._build_instructions(session_id),
         ) as stream:
-            yield stream
-        self._finalize(session_id, stream.all_messages())
+            try:
+                yield stream
+            finally:
+                self._finalize(session_id, stream.all_messages())
 
 
 logging.basicConfig(
