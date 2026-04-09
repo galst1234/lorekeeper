@@ -80,37 +80,70 @@ def strip_tool_messages(messages: list[ModelMessage]) -> list[ModelMessage]:
     return clean
 
 
-def preprocess_message(message: str) -> str:
-    """Expand /skill commands into full instruction prompts; pass other messages through unchanged."""
-    if not message.startswith("/"):
-        return message
-    parts = message[1:].split(None, 1)
-    if not parts:
-        return message
-    skill_name = parts[0]
-    args = parts[1] if len(parts) > 1 else ""
-    return skills.dispatch(skill_name, args)
+class LoreKeeperAgent:
+    """Agent that owns session history and active skill state."""
 
+    def __init__(self) -> None:
+        self._agent: Agent = create_agent()
+        self._sessions: dict[str, list[ModelMessage]] = {}
+        self._active_skills: dict[str, str] = {}
 
-@asynccontextmanager
-async def agent_stream(
-    agent: Agent,
-    message: str,
-    *,
-    history: list[ModelMessage] | None,
-    model: OpenAIResponsesModel,
-    settings: OpenAIResponsesModelSettings,
-) -> AsyncIterator[Any]:
-    """Preprocess message (expanding /skills) then stream agent response."""
-    user_prompt = preprocess_message(message)
-    async with agent.run_stream(
-        user_prompt=user_prompt,
-        message_history=history,
-        model=model,
-        model_settings=settings,
-        instructions=SYSTEM_PROMPT,
-    ) as stream:
-        yield stream
+    def clear_session(self, session_id: str) -> None:
+        self._sessions.pop(session_id, None)
+        self._active_skills.pop(session_id, None)
+
+    @asynccontextmanager
+    async def chat_stream(
+        self,
+        session_id: str,
+        message: str,
+        *,
+        model: OpenAIResponsesModel,
+        settings: OpenAIResponsesModelSettings,
+    ) -> AsyncIterator[Any]:
+        """Handle skill detection, system prompt injection, run, history update, and completion detection."""
+        # 1. Detect skill command
+        user_prompt = message
+        if message.startswith("/"):
+            parts = message[1:].split(None, 1)
+            if parts:
+                skill_name = parts[0]
+                args = parts[1] if len(parts) > 1 else ""
+                result = skills.dispatch(skill_name, args)
+                if result.startswith(("Unknown skill:", "Usage:")):
+                    user_prompt = result
+                else:
+                    self._active_skills[session_id] = result
+                    user_prompt = f"Start the {skill_name} workflow for: {args}"
+
+        # 2. Inject active skill into system prompt
+        active = self._active_skills.get(session_id)
+        instructions = f"{SYSTEM_PROMPT}\n\n---\n\n{active}" if active else SYSTEM_PROMPT
+
+        # 3. Trimmed history
+        history = self._sessions.get(session_id)
+        trimmed = history[-MAX_HISTORY_MESSAGES:] if history and len(history) > MAX_HISTORY_MESSAGES else history
+
+        # 4. Run
+        async with self._agent.run_stream(
+            user_prompt=user_prompt,
+            message_history=trimmed,
+            model=model,
+            model_settings=settings,
+            instructions=instructions,
+        ) as stream:
+            yield stream
+
+        # 5. Update history
+        self._sessions[session_id] = strip_tool_messages(stream.all_messages())
+
+        # 6. Detect [SKILL_COMPLETE] in last response — clear active skill
+        if session_id in self._active_skills:
+            last = self._sessions[session_id][-1] if self._sessions[session_id] else None
+            if isinstance(last, ModelResponse) and any(
+                "[SKILL_COMPLETE]" in str(p.content) for p in last.parts if isinstance(p, (TextPart, ThinkingPart))
+            ):
+                self._active_skills.pop(session_id, None)
 
 
 logging.basicConfig(

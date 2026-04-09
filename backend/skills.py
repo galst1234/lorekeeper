@@ -25,11 +25,10 @@ def chores_skill(args: str) -> str:
     if not title:
         return "Usage: /chores <Adventure Log Title>"
     return (
-        f'You are running the chores workflow for the adventure log titled "{title}". '
+        f"You are currently working on the chores workflow for: {title}.\n"
         f'Do NOT ask the user which page to process — it is already specified as "{title}". '
         "Complete all 5 steps below in order for this exact page. "
         "Regardless of how many confirmation turns occur, always continue with the next pending step. "
-        f"After any user interaction, state \"Continuing chores for '{title}'\" and proceed. "
         "When the user explicitly approves a proposed action (replies 'yes' or equivalent), "
         "that approval covers execution — do not re-ask for confirmation inside the tool call; "
         "proceed directly to calling the tool. "
@@ -73,5 +72,6 @@ def chores_skill(args: str) -> str:
         "Only propose updating a quest if the session adds meaningful new information not already in it. "
         "If nothing needs to change, state that clearly and skip. "
         "Otherwise show the user all proposed changes together, wait for approval, then execute.\n\n"
-        "After completing all 5 steps, provide a brief summary of everything that was created or updated."
+        "After completing all 5 steps, provide a brief summary of everything that was created or updated. "
+        "At the very end of your summary, include the exact text [SKILL_COMPLETE] on its own line."
     )
