@@ -57,9 +57,9 @@ def chores_skill(args: str) -> str:
         f'("Add {title} to <Month> <day>, <year>?"), wait for explicit approval, then add.\n\n'
         "**Step 5 — Quest log**\n"
         "Call `fetch_quests_tool` to get the current quest log. "
-        "For each topic suggested by the adventure log, search `qdrant-find` for semantically related "
-        "existing quests before proposing anything — a new topic may already be covered by an existing quest "
-        "under a different name. Only propose creating a quest if no existing quest covers it. "
+        "Read the full quest list carefully. For each topic in the adventure log, check whether any "
+        "existing quest already covers it — even under a different name or framing. "
+        "Only propose creating a quest if no existing quest covers that thread. "
         "Only propose updating a quest if the session adds meaningful new information not already in it. "
         "If nothing needs to change, state that clearly and skip. "
         "Otherwise show the user all proposed changes together, wait for approval, then execute.\n\n"
