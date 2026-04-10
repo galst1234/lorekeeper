@@ -416,7 +416,7 @@ export default function App() {
             })
           }
 
-          if (payload.done) {
+          if (type === 'done') {
             setMessages(prev => {
               const msgs = [...prev]
               msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], streaming: false }
@@ -424,7 +424,7 @@ export default function App() {
             })
           }
 
-          if (payload.error) {
+          if (type === 'error') {
             setMessages(prev => {
               const msgs = [...prev]
               msgs[msgs.length - 1] = {

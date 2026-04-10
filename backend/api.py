@@ -329,7 +329,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
             with contextlib.suppress(asyncio.CancelledError):
                 await agent_task
         if not error_occurred:
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'session_id': session_id})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
