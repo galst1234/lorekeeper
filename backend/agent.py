@@ -1,12 +1,12 @@
 import asyncio
 import logging
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterable, AsyncIterator, Callable, Coroutine
 from contextlib import asynccontextmanager
 from enum import StrEnum
 from typing import Any
 
-from pydantic_ai import Agent
+from pydantic_ai import Agent, AgentStreamEvent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, ThinkingPart, UserPromptPart
 from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
@@ -14,6 +14,8 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 import skills
 from config import settings
+
+type EventStreamHandler = Callable[[Any, AsyncIterable[AgentStreamEvent]], Coroutine[Any, Any, None]] | None
 
 MAX_HISTORY_MESSAGES = 20
 
@@ -136,6 +138,7 @@ class LoreKeeperAgent:
         *,
         model: OpenAIResponsesModel,
         model_settings: OpenAIResponsesModelSettings,
+        event_stream_handler: EventStreamHandler = None,
     ) -> AsyncIterator[Any]:
         """Stream a chat response, handling skill dispatch and history management."""
         async with self._agent.run_stream(
@@ -144,6 +147,7 @@ class LoreKeeperAgent:
             model=model,
             model_settings=model_settings,
             instructions=self._build_instructions(session_id),
+            event_stream_handler=event_stream_handler,
         ) as stream:
             try:
                 yield stream
