@@ -20,7 +20,7 @@ interface ReasoningOption {
 
 type ThinkingBlock = { kind: 'thinking'; id: number; content: string; done: boolean }
 type ToolCallBlock = { kind: 'tool_call'; id: number; tool_name: string; args: string; done: boolean }
-type ToolResponseBlock = { kind: 'tool_response'; tool_name: string; content: string }
+type ToolResponseBlock = { kind: 'tool_response'; tool_name: string; call_index: number; content: string }
 type TextBlock = { kind: 'text'; content: string }
 type Block = ThinkingBlock | ToolCallBlock | ToolResponseBlock | TextBlock
 
@@ -113,26 +113,28 @@ function AssistantMessage({ msg }: { msg: Message }) {
   }
 
   const blocks = msg.blocks ?? []
+  // Build a map from tool_call sse index -> tool_response block for O(1) pairing
+  const responseByCallIndex = new Map<number, ToolResponseBlock>()
+  for (const b of blocks) {
+    if (b.kind === 'tool_response') responseByCallIndex.set(b.call_index, b)
+  }
   const rendered: ReactNode[] = []
-  let i = 0
-  while (i < blocks.length) {
-    const block = blocks[i]
+  let textBlockIndex = 0
+  for (const block of blocks) {
     if (block.kind === 'thinking') {
+      // Skip empty completed thinking blocks (model encrypted reasoning, no accessible content)
+      if (block.done && !block.content) continue
       rendered.push(<ThinkingBlock key={`t-${block.id}`} block={block} />)
-      i++
     } else if (block.kind === 'tool_call') {
-      const next = blocks[i + 1]
-      const response = next?.kind === 'tool_response' ? next : undefined
-      rendered.push(<ToolCallBlock key={`c-${block.id}`} call={block} response={response} />)
-      i += response !== undefined ? 2 : 1
+      rendered.push(<ToolCallBlock key={`c-${block.id}`} call={block} response={responseByCallIndex.get(block.id)} />)
     } else if (block.kind === 'tool_response') {
-      // Orphaned (shouldn't occur), skip
-      i++
+      // rendered inline with their tool_call above — skip standalone
     } else {
       // text block
-      const isLast = i === blocks.length - 1
+      textBlockIndex++
+      const isLast = block === blocks[blocks.length - 1]
       rendered.push(
-        <div key={`tx-${i}`} className="bubble">
+        <div key={`tx-${textBlockIndex}`} className="bubble">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}
@@ -142,7 +144,6 @@ function AssistantMessage({ msg }: { msg: Message }) {
           {msg.streaming && isLast && <span className="cursor">▋</span>}
         </div>
       )
-      i++
     }
   }
 
@@ -356,7 +357,7 @@ export default function App() {
               const last = { ...msgs[msgs.length - 1] }
               last.blocks = (last.blocks ?? []).map(b =>
                 b.kind === 'tool_call' && b.id === payload.index
-                  ? { ...b, done: true, args: b.args || payload.complete_args || '' }
+                  ? { ...b, done: true, args: payload.complete_args || b.args || '' }
                   : b
               )
               msgs[msgs.length - 1] = last
@@ -370,7 +371,7 @@ export default function App() {
               const last = { ...msgs[msgs.length - 1] }
               last.blocks = [
                 ...(last.blocks ?? []),
-                { kind: 'tool_response' as const, tool_name: payload.tool_name, content: payload.content },
+                { kind: 'tool_response' as const, tool_name: payload.tool_name, call_index: payload.call_index, content: payload.content },
               ]
               msgs[msgs.length - 1] = last
               return msgs
