@@ -4,13 +4,6 @@ import type { KeyboardEvent, ChangeEvent, MouseEvent } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-  streaming?: boolean
-  error?: boolean
-}
-
 interface ModelOption {
   id: string
   name: string
@@ -25,6 +18,20 @@ interface ReasoningOption {
   description: string
 }
 
+type ThinkingBlock = { kind: 'thinking'; id: number; content: string; done: boolean }
+type ToolCallBlock = { kind: 'tool_call'; id: number; tool_name: string; args: string; done: boolean }
+type ToolResponseBlock = { kind: 'tool_response'; tool_name: string; content: string }
+type TextBlock = { kind: 'text'; content: string }
+type Block = ThinkingBlock | ToolCallBlock | ToolResponseBlock | TextBlock
+
+interface Message {
+  role: 'user' | 'assistant'
+  content: string        // user messages and error text
+  blocks?: Block[]       // assistant messages only
+  streaming?: boolean
+  error?: boolean
+}
+
 const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g
 
 function linkify(text: string): ReactNode[] {
@@ -34,6 +41,115 @@ function linkify(text: string): ReactNode[] {
       ? <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a>
       : part
   )
+}
+
+function ThinkingBlock({ block }: { block: ThinkingBlock }) {
+  const [expanded, setExpanded] = useState(true)
+
+  useEffect(() => {
+    if (block.done) setExpanded(false)
+  }, [block.done])
+
+  return (
+    <div className="op-block thinking-block">
+      <button className="op-block-header" onClick={() => setExpanded(e => !e)}>
+        <span className="op-block-icon">💭</span>
+        <span className="op-block-title">
+          {block.done ? 'Thought for a moment' : 'Thinking...'}
+        </span>
+        <span className={`op-block-caret${expanded ? ' open' : ''}`}>▸</span>
+      </button>
+      {expanded && (
+        <div className="op-block-body">
+          <pre className="op-block-pre">
+            {block.content}
+            {!block.done && <span className="cursor">▋</span>}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ToolCallBlock({ call, response }: { call: ToolCallBlock; response: ToolResponseBlock | undefined }) {
+  const [expanded, setExpanded] = useState(true)
+
+  useEffect(() => {
+    if (call.done && response !== undefined) setExpanded(false)
+  }, [call.done, response])
+
+  return (
+    <div className="op-block tool-block">
+      <button className="op-block-header" onClick={() => setExpanded(e => !e)}>
+        <span className="op-block-icon">🔧</span>
+        <span className="op-block-title">
+          {call.done ? `${call.tool_name} ✓` : `Calling ${call.tool_name}...`}
+        </span>
+        <span className={`op-block-caret${expanded ? ' open' : ''}`}>▸</span>
+      </button>
+      {expanded && (
+        <div className="op-block-body">
+          <div className="op-block-section-label">Args</div>
+          <pre className="op-block-pre">
+            {call.args}
+            {!call.done && <span className="cursor">▋</span>}
+          </pre>
+          {response !== undefined && (
+            <>
+              <div className="op-block-section-label">Response</div>
+              <pre className="op-block-pre">{response.content}</pre>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AssistantMessage({ msg }: { msg: Message }) {
+  if (msg.error) {
+    return <div className="bubble">{msg.content}</div>
+  }
+
+  const blocks = msg.blocks ?? []
+  const rendered: ReactNode[] = []
+  let i = 0
+  while (i < blocks.length) {
+    const block = blocks[i]
+    if (block.kind === 'thinking') {
+      rendered.push(<ThinkingBlock key={`t-${block.id}`} block={block} />)
+      i++
+    } else if (block.kind === 'tool_call') {
+      const next = blocks[i + 1]
+      const response = next?.kind === 'tool_response' ? next : undefined
+      rendered.push(<ToolCallBlock key={`c-${block.id}`} call={block} response={response} />)
+      i += response !== undefined ? 2 : 1
+    } else if (block.kind === 'tool_response') {
+      // Orphaned (shouldn't occur), skip
+      i++
+    } else {
+      // text block
+      const isLast = i === blocks.length - 1
+      rendered.push(
+        <div key={`tx-${i}`} className="bubble">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}
+          >
+            {block.content}
+          </ReactMarkdown>
+          {msg.streaming && isLast && <span className="cursor">▋</span>}
+        </div>
+      )
+      i++
+    }
+  }
+
+  if (blocks.length === 0 && msg.streaming) {
+    rendered.push(<div key="empty" className="bubble"><span className="cursor">▋</span></div>)
+  }
+
+  return <>{rendered}</>
 }
 
 function getOrCreateSessionId() {
