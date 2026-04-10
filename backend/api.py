@@ -236,6 +236,11 @@ async def _collect_agent_events(  # noqa: C901, PLR0912
 
         elif isinstance(event, FunctionToolResultEvent):
             info = state.tcid_to_info.get(event.tool_call_id)
+            if info is None:
+                logger.warning(
+                    "tool_response for unknown tool_call_id %s — emitting with call_index=-1",
+                    event.tool_call_id,
+                )
             tool_name = info[0] if info else event.tool_call_id
             call_index = info[1] if info else -1
             await queue.put(
@@ -296,7 +301,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     )
 
     async def event_stream() -> AsyncGenerator[str]:
-        queue: asyncio.Queue[str | None] = asyncio.Queue()
+        queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=128)
         agent_task = asyncio.create_task(
             _run_agent_task(
                 agent,

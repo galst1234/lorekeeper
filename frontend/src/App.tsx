@@ -107,6 +107,24 @@ function ToolCallBlock({ call, response }: { call: ToolCallBlock; response: Tool
   )
 }
 
+function OrphanedToolResponse({ block }: { block: ToolResponseBlock }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className="op-block tool-block">
+      <button className="op-block-header" onClick={() => setExpanded(e => !e)}>
+        <span className="op-block-icon">🔧</span>
+        <span className="op-block-title">{block.tool_name} (response)</span>
+        <span className={`op-block-caret${expanded ? ' open' : ''}`}>▸</span>
+      </button>
+      {expanded && (
+        <div className="op-block-body">
+          <pre className="op-block-pre">{block.content}</pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AssistantMessage({ msg }: { msg: Message }) {
   if (msg.error) {
     return <div className="bubble">{msg.content}</div>
@@ -128,7 +146,11 @@ function AssistantMessage({ msg }: { msg: Message }) {
     } else if (block.kind === 'tool_call') {
       rendered.push(<ToolCallBlock key={`c-${block.id}`} call={block} response={responseByCallIndex.get(block.id)} />)
     } else if (block.kind === 'tool_response') {
-      // rendered inline with their tool_call above — skip standalone
+      // Rendered inline inside ToolCallBlock when paired; show fallback if orphaned
+      const isPaired = block.call_index !== -1 && blocks.some(b => b.kind === 'tool_call' && b.id === block.call_index)
+      if (!isPaired) {
+        rendered.push(<OrphanedToolResponse key={`tr-${block.call_index}-${block.tool_name}`} block={block} />)
+      }
     } else {
       // text block
       textBlockIndex++
