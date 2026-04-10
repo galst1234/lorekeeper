@@ -125,55 +125,106 @@ function OrphanedToolResponse({ block }: { block: ToolResponseBlock }) {
   )
 }
 
+function isActionBlockDone(block: Block, allBlocks: Block[]): boolean {
+  if (block.kind === 'tool_response') return true
+  if (block.kind === 'thinking') return block.done
+  if (block.kind === 'tool_call') {
+    if (!block.done) return false
+    return allBlocks.some(b => b.kind === 'tool_response' && b.call_index === block.id)
+  }
+  return true
+}
+
+function ActionsWrapper({ blocks, streaming }: { blocks: Block[]; streaming: boolean }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const responseByCallIndex = new Map<number, ToolResponseBlock>()
+  for (const b of blocks) {
+    if (b.kind === 'tool_response') responseByCallIndex.set(b.call_index, b)
+  }
+
+  const actionCount = blocks.filter(
+    b => (b.kind === 'thinking' && !(b.done && !b.content)) || b.kind === 'tool_call'
+  ).length
+  if (actionCount === 0) return null
+
+  return (
+    <div className="op-block actions-summary">
+      <button className="op-block-header" onClick={() => setExpanded(e => !e)}>
+        <span className="op-block-icon">⚙️</span>
+        <span className="op-block-title">
+          {`Performed ${actionCount} action${actionCount !== 1 ? 's' : ''}${streaming ? '…' : ''}`}
+        </span>
+        <span className={`op-block-caret${expanded ? ' open' : ''}`}>▸</span>
+      </button>
+      {expanded && (
+        <div className="op-block-body actions-body">
+          {blocks.map(block => {
+            if (block.kind === 'thinking') {
+              if (block.done && !block.content) return null
+              return <ThinkingBlock key={`t-${block.id}`} block={block} />
+            }
+            if (block.kind === 'tool_call') {
+              return <ToolCallBlock key={`c-${block.id}`} call={block} response={responseByCallIndex.get(block.id)} />
+            }
+            if (block.kind === 'tool_response') {
+              const isPaired = block.call_index !== -1 && blocks.some(b => b.kind === 'tool_call' && b.id === block.call_index)
+              if (!isPaired) return <OrphanedToolResponse key={`tr-${block.call_index}-${block.tool_name}`} block={block} />
+            }
+            return null
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AssistantMessage({ msg }: { msg: Message }) {
   if (msg.error) {
     return <div className="bubble">{msg.content}</div>
   }
 
   const blocks = msg.blocks ?? []
-  // Build a map from tool_call sse index -> tool_response block for O(1) pairing
+  const actionBlocks = blocks.filter(b => b.kind !== 'text')
+  const doneBlocks = actionBlocks.filter(b => isActionBlockDone(b, blocks))
+  const activeBlock = actionBlocks.find(b => !isActionBlockDone(b, blocks)) ?? null
+  const textBlocks = blocks.filter((b): b is TextBlock => b.kind === 'text')
+  const hasText = textBlocks.length > 0
+
+  // Response map needed for the edge case: tool_call is done but response not yet arrived
   const responseByCallIndex = new Map<number, ToolResponseBlock>()
   for (const b of blocks) {
     if (b.kind === 'tool_response') responseByCallIndex.set(b.call_index, b)
   }
-  const rendered: ReactNode[] = []
-  let textBlockIndex = 0
-  for (const block of blocks) {
-    if (block.kind === 'thinking') {
-      // Skip empty completed thinking blocks (model encrypted reasoning, no accessible content)
-      if (block.done && !block.content) continue
-      rendered.push(<ThinkingBlock key={`t-${block.id}`} block={block} />)
-    } else if (block.kind === 'tool_call') {
-      rendered.push(<ToolCallBlock key={`c-${block.id}`} call={block} response={responseByCallIndex.get(block.id)} />)
-    } else if (block.kind === 'tool_response') {
-      // Rendered inline inside ToolCallBlock when paired; show fallback if orphaned
-      const isPaired = block.call_index !== -1 && blocks.some(b => b.kind === 'tool_call' && b.id === block.call_index)
-      if (!isPaired) {
-        rendered.push(<OrphanedToolResponse key={`tr-${block.call_index}-${block.tool_name}`} block={block} />)
-      }
-    } else {
-      // text block
-      textBlockIndex++
-      const isLast = block === blocks[blocks.length - 1]
-      rendered.push(
-        <div key={`tx-${textBlockIndex}`} className="bubble">
+
+  return (
+    <>
+      {doneBlocks.length > 0 && (
+        <ActionsWrapper blocks={doneBlocks} streaming={msg.streaming ?? false} />
+      )}
+      {activeBlock && (
+        activeBlock.kind === 'thinking'
+          ? <ThinkingBlock key={`t-${activeBlock.id}`} block={activeBlock} />
+          : activeBlock.kind === 'tool_call'
+            ? <ToolCallBlock key={`c-${activeBlock.id}`} call={activeBlock} response={responseByCallIndex.get(activeBlock.id)} />
+            : null
+      )}
+      {textBlocks.map((block, i) => (
+        <div key={`tx-${i}`} className="bubble">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}
           >
             {block.content}
           </ReactMarkdown>
-          {msg.streaming && isLast && <span className="cursor">▋</span>}
+          {msg.streaming && i === textBlocks.length - 1 && <span className="cursor">▋</span>}
         </div>
-      )
-    }
-  }
-
-  if (blocks.length === 0 && msg.streaming) {
-    rendered.push(<div key="empty" className="bubble"><span className="cursor">▋</span></div>)
-  }
-
-  return <>{rendered}</>
+      ))}
+      {msg.streaming && !hasText && (
+        <div className="bubble"><span className="cursor">▋</span></div>
+      )}
+    </>
+  )
 }
 
 function getOrCreateSessionId() {

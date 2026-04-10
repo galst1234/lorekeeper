@@ -633,3 +633,12 @@ body {
   max-height: 240px;
   overflow-y: auto;
 }
+
+/* Nested op-blocks inside the actions summary wrapper */
+.actions-body .op-block {
+  margin-bottom: 4px;
+}
+
+.actions-body .op-block:last-child {
+  margin-bottom: 0;
+}
