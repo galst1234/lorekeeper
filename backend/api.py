@@ -1,16 +1,29 @@
 import asyncio
+import contextlib
 import json
 import logging
 import os
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, AsyncIterable
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from pydantic_ai.models.openai import OpenAIResponsesModelSettings
+from pydantic_ai import (
+    AgentStreamEvent,
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
+    PartDeltaEvent,
+    PartEndEvent,
+    PartStartEvent,
+    ThinkingPartDelta,
+    ToolCallPartDelta,
+)
+from pydantic_ai.messages import TextPart, ThinkingPart, ToolCallPart
+from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
 
 from agent import (
     MODEL_METADATA,
@@ -120,28 +133,206 @@ async def trigger_fetch() -> dict[str, str]:
     return {"status": "started"}
 
 
+@dataclass
+class _StreamState:
+    """Mutable state shared across all event_stream_handler calls for one agent run."""
+
+    block_counter: list[int] = field(default_factory=lambda: [0])
+    # pydantic-ai part index -> (block_kind, sse_block_index, tool_call_id)
+    open_parts: dict[int, tuple[str, int, str]] = field(default_factory=dict)
+    # tool_call_id -> (tool_name, sse_block_index) — populated at PartStartEvent so it survives open_parts.clear()
+    tcid_to_info: dict[str, tuple[str, int]] = field(default_factory=dict)
+
+
+async def _collect_agent_events(  # noqa: C901, PLR0912, PLR0915
+    queue: asyncio.Queue[str | None],
+    _ctx: object,
+    events: AsyncIterable[AgentStreamEvent],
+    state: _StreamState,
+) -> None:
+    """Map pydantic-ai agent stream events to SSE JSON messages on queue."""
+    async for event in events:
+        if isinstance(event, PartStartEvent):
+            if isinstance(event.part, ThinkingPart):
+                sse_idx = state.block_counter[0]
+                state.open_parts[event.index] = ("thinking", sse_idx, "")
+                await queue.put(json.dumps({"type": "thinking_start", "index": sse_idx}))
+                state.block_counter[0] += 1
+                if event.part.content:
+                    await queue.put(
+                        json.dumps({"type": "thinking_delta", "index": sse_idx, "delta": event.part.content}),
+                    )
+            elif isinstance(event.part, ToolCallPart):
+                # Close any open thinking blocks
+                for pai_idx, (bt, si, _) in list(state.open_parts.items()):
+                    if bt == "thinking":
+                        await queue.put(json.dumps({"type": "thinking_end", "index": si}))
+                        del state.open_parts[pai_idx]
+                sse_idx = state.block_counter[0]
+                state.open_parts[event.index] = ("tool_call", sse_idx, event.part.tool_call_id)
+                # Populate early so pairing survives if open_parts is cleared before FunctionToolCallEvent
+                state.tcid_to_info[event.part.tool_call_id] = (event.part.tool_name, sse_idx)
+                await queue.put(
+                    json.dumps({
+                        "type": "tool_call_start",
+                        "index": sse_idx,
+                        "tool_name": event.part.tool_name,
+                    }),
+                )
+                state.block_counter[0] += 1
+            elif isinstance(event.part, TextPart):
+                # Close any remaining open blocks before text begins
+                for bt, si, _ in state.open_parts.values():
+                    await queue.put(json.dumps({"type": f"{bt}_end", "index": si}))
+                state.open_parts.clear()
+
+        elif isinstance(event, PartEndEvent):
+            if event.index in state.open_parts and state.open_parts[event.index][0] == "thinking":
+                _, si, _ = state.open_parts.pop(event.index)
+                await queue.put(json.dumps({"type": "thinking_end", "index": si}))
+
+        elif isinstance(event, PartDeltaEvent):
+            if isinstance(event.delta, ThinkingPartDelta) and event.index in state.open_parts:
+                _, sse_idx, _ = state.open_parts[event.index]
+                if event.delta.content_delta:
+                    await queue.put(
+                        json.dumps({
+                            "type": "thinking_delta",
+                            "index": sse_idx,
+                            "delta": event.delta.content_delta,
+                        }),
+                    )
+            elif (
+                isinstance(event.delta, ToolCallPartDelta)
+                and event.delta.args_delta
+                and event.index in state.open_parts
+            ):
+                _, sse_idx, _ = state.open_parts[event.index]
+                await queue.put(
+                    json.dumps(
+                        {
+                            "type": "tool_call_args_delta",
+                            "index": sse_idx,
+                            "delta": str(event.delta.args_delta),
+                        },
+                    ),
+                )
+
+        elif isinstance(event, FunctionToolCallEvent):
+            # Close the matching open tool_call part and record (tool_name, sse_index) for pairing
+            for pai_idx, (bt, si, tcid) in list(state.open_parts.items()):
+                if bt == "tool_call" and tcid == event.part.tool_call_id:
+                    try:
+                        complete_args = (
+                            json.dumps(event.part.args, indent=2)
+                            if isinstance(event.part.args, dict)
+                            else str(event.part.args)
+                        )
+                    except Exception:
+                        complete_args = str(event.part.args)
+                    await queue.put(
+                        json.dumps({"type": "tool_call_end", "index": si, "complete_args": complete_args}),
+                    )
+                    state.tcid_to_info[event.part.tool_call_id] = (event.part.tool_name, si)
+                    del state.open_parts[pai_idx]
+                    break
+
+        elif isinstance(event, FunctionToolResultEvent):
+            info = state.tcid_to_info.get(event.tool_call_id)
+            if info is None:
+                logger.warning(
+                    "tool_response for unknown tool_call_id %s — emitting with call_index=-1",
+                    event.tool_call_id,
+                )
+            tool_name = info[0] if info else event.tool_call_id
+            call_index = info[1] if info else -1
+            await queue.put(
+                json.dumps({
+                    "type": "tool_response",
+                    "tool_name": tool_name,
+                    "call_index": call_index,
+                    "content": str(event.result.content),
+                }),
+            )
+
+    # Close any remaining open parts at stream end
+    for bt, si, _ in state.open_parts.values():
+        await queue.put(json.dumps({"type": f"{bt}_end", "index": si}))
+
+
+async def _run_agent_task(  # noqa: PLR0913
+    agent_instance: LoreKeeperAgent,
+    queue: asyncio.Queue[str | None],
+    *,
+    session_id: str,
+    message: str,
+    run_model: OpenAIResponsesModel,
+    run_settings: OpenAIResponsesModelSettings,
+) -> None:
+    """Drive agent stream to completion; puts SSE payloads on queue, sentinel in finally."""
+
+    state = _StreamState()
+
+    async def _handler(_ctx: object, evts: AsyncIterable[AgentStreamEvent]) -> None:
+        await _collect_agent_events(queue, _ctx, evts, state)
+
+    try:
+        async with agent_instance.chat_stream(
+            session_id,
+            message,
+            model=run_model,
+            model_settings=run_settings,
+            event_stream_handler=_handler,
+        ) as stream:
+            async for delta in stream.stream_text(delta=True):
+                if delta:
+                    await queue.put(json.dumps({"type": "text_delta", "delta": delta}))
+    except Exception as e:
+        logger.error("Stream error: %s", e, exc_info=True)
+        await queue.put(json.dumps({"type": "error", "error": str(e)}))
+    finally:
+        await queue.put(None)
+
+
 @app.post("/api/chat")
 async def chat(req: ChatRequest) -> StreamingResponse:
     session_id = req.session_id or str(uuid.uuid4())
     run_model = build_model(req.model)
-    run_settings = OpenAIResponsesModelSettings(openai_reasoning_effort=req.reasoning_effort.value)
+    run_settings = OpenAIResponsesModelSettings(
+        openai_reasoning_effort=req.reasoning_effort.value,
+        openai_reasoning_summary="concise",
+    )
 
     async def event_stream() -> AsyncGenerator[str]:
+        queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=128)
+        agent_task = asyncio.create_task(
+            _run_agent_task(
+                agent,
+                queue,
+                session_id=session_id,
+                message=req.message,
+                run_model=run_model,
+                run_settings=run_settings,
+            ),
+        )
+        error_occurred = False
         try:
-            async with agent.chat_stream(
-                session_id,
-                req.message,
-                model=run_model,
-                model_settings=run_settings,
-            ) as stream:
-                async for delta in stream.stream_text(delta=True):
-                    yield f"data: {json.dumps({'delta': delta})}\n\n"
-
-        except Exception as e:
-            logger.error(f"Stream error: {e}", exc_info=True)
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-
-        yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                try:
+                    if json.loads(item).get("type") == "error":
+                        error_occurred = True
+                except Exception:
+                    pass
+                yield f"data: {item}\n\n"
+        finally:
+            agent_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await agent_task
+        if not error_occurred:
+            yield f"data: {json.dumps({'type': 'done', 'session_id': session_id})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 

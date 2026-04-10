@@ -369,6 +369,8 @@ body {
 
 .message.assistant {
   justify-content: flex-start;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .bubble {
@@ -547,4 +549,96 @@ body {
 }
 .message.assistant .bubble em {
   color: #c8b8e8;
+}
+
+/* Operation blocks (thinking, tool calls) */
+.op-block {
+  margin-bottom: 6px;
+  border: 1px solid #2a2040;
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 0.82rem;
+  max-width: 75%;
+}
+
+.op-block-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  background: #13101c;
+  border: none;
+  color: #8a80a8;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Georgia', serif;
+  font-size: 0.82rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.op-block-header:hover {
+  background: #1a1628;
+  color: #b0a8c8;
+}
+
+.op-block-icon {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.op-block-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.op-block-caret {
+  font-size: 0.7rem;
+  display: inline-block;
+  transition: transform 0.2s;
+}
+
+.op-block-caret.open {
+  transform: rotate(90deg);
+}
+
+.op-block-body {
+  background: #0e0a1a;
+  padding: 8px 10px;
+  border-top: 1px solid #2a2040;
+}
+
+.op-block-section-label {
+  font-size: 0.72rem;
+  color: #5a5070;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  margin-top: 8px;
+}
+
+.op-block-section-label:first-child {
+  margin-top: 0;
+}
+
+.op-block-pre {
+  font-family: 'Courier New', monospace;
+  font-size: 0.78rem;
+  color: #9090b8;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+/* Nested op-blocks inside the actions summary wrapper */
+.actions-body .op-block {
+  margin-bottom: 4px;
+}
+
+.actions-body .op-block:last-child {
+  margin-bottom: 0;
 }

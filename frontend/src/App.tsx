@@ -4,13 +4,6 @@ import type { KeyboardEvent, ChangeEvent, MouseEvent } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-  streaming?: boolean
-  error?: boolean
-}
-
 interface ModelOption {
   id: string
   name: string
@@ -25,6 +18,20 @@ interface ReasoningOption {
   description: string
 }
 
+type ThinkingBlock = { kind: 'thinking'; id: number; content: string; done: boolean }
+type ToolCallBlock = { kind: 'tool_call'; id: number; tool_name: string; args: string; done: boolean }
+type ToolResponseBlock = { kind: 'tool_response'; tool_name: string; call_index: number; content: string }
+type TextBlock = { kind: 'text'; content: string }
+type Block = ThinkingBlock | ToolCallBlock | ToolResponseBlock | TextBlock
+
+interface Message {
+  role: 'user' | 'assistant'
+  content: string        // user messages and error text
+  blocks?: Block[]       // assistant messages only
+  streaming?: boolean
+  error?: boolean
+}
+
 const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g
 
 function linkify(text: string): ReactNode[] {
@@ -33,6 +40,190 @@ function linkify(text: string): ReactNode[] {
     URL_REGEX.test(part)
       ? <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a>
       : part
+  )
+}
+
+function ThinkingBlock({ block }: { block: ThinkingBlock }) {
+  const [expanded, setExpanded] = useState(!block.done)
+
+  useEffect(() => {
+    if (block.done) setExpanded(false)
+  }, [block.done])
+
+  return (
+    <div className="op-block thinking-block">
+      <button className="op-block-header" onClick={() => setExpanded(e => !e)}>
+        <span className="op-block-icon">💭</span>
+        <span className="op-block-title">
+          {block.done ? 'Thought for a moment' : 'Thinking...'}
+        </span>
+        <span className={`op-block-caret${expanded ? ' open' : ''}`}>▸</span>
+      </button>
+      {expanded && (
+        <div className="op-block-body">
+          <pre className="op-block-pre">
+            {block.content}
+            {!block.done && <span className="cursor">▋</span>}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ToolCallBlock({ call, response }: { call: ToolCallBlock; response: ToolResponseBlock | undefined }) {
+  const [expanded, setExpanded] = useState(true)
+  const shouldCollapse = call.done && response !== undefined
+
+  useEffect(() => {
+    if (shouldCollapse) setExpanded(false)
+  }, [shouldCollapse])
+
+  return (
+    <div className="op-block tool-block">
+      <button className="op-block-header" onClick={() => setExpanded(e => !e)}>
+        <span className="op-block-icon">🔧</span>
+        <span className="op-block-title">
+          {call.done ? `${call.tool_name} ✓` : `Calling ${call.tool_name}...`}
+        </span>
+        <span className={`op-block-caret${expanded ? ' open' : ''}`}>▸</span>
+      </button>
+      {expanded && (
+        <div className="op-block-body">
+          <div className="op-block-section-label">Args</div>
+          <pre className="op-block-pre">
+            {call.args}
+            {!call.done && <span className="cursor">▋</span>}
+          </pre>
+          {response !== undefined && (
+            <>
+              <div className="op-block-section-label">Response</div>
+              <pre className="op-block-pre">{response.content}</pre>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function OrphanedToolResponse({ block }: { block: ToolResponseBlock }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className="op-block tool-block">
+      <button className="op-block-header" onClick={() => setExpanded(e => !e)}>
+        <span className="op-block-icon">🔧</span>
+        <span className="op-block-title">{block.tool_name} (response)</span>
+        <span className={`op-block-caret${expanded ? ' open' : ''}`}>▸</span>
+      </button>
+      {expanded && (
+        <div className="op-block-body">
+          <pre className="op-block-pre">{block.content}</pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function isActionBlockDone(block: Block, allBlocks: Block[]): boolean {
+  if (block.kind === 'tool_response') return true
+  if (block.kind === 'thinking') return block.done
+  if (block.kind === 'tool_call') {
+    if (!block.done) return false
+    return allBlocks.some(b => b.kind === 'tool_response' && b.call_index === block.id)
+  }
+  return true
+}
+
+function ActionsWrapper({ blocks, streaming }: { blocks: Block[]; streaming: boolean }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const responseByCallIndex = new Map<number, ToolResponseBlock>()
+  for (const b of blocks) {
+    if (b.kind === 'tool_response') responseByCallIndex.set(b.call_index, b)
+  }
+
+  const actionCount = blocks.filter(
+    b => (b.kind === 'thinking' && !(b.done && !b.content)) || b.kind === 'tool_call'
+  ).length
+  if (actionCount === 0) return null
+
+  return (
+    <div className="op-block actions-summary">
+      <button className="op-block-header" onClick={() => setExpanded(e => !e)}>
+        <span className="op-block-icon">⚙️</span>
+        <span className="op-block-title">
+          {`Performed ${actionCount} action${actionCount !== 1 ? 's' : ''}${streaming ? '…' : ''}`}
+        </span>
+        <span className={`op-block-caret${expanded ? ' open' : ''}`}>▸</span>
+      </button>
+      {expanded && (
+        <div className="op-block-body actions-body">
+          {blocks.map(block => {
+            if (block.kind === 'thinking') {
+              if (block.done && !block.content) return null
+              return <ThinkingBlock key={`t-${block.id}`} block={block} />
+            }
+            if (block.kind === 'tool_call') {
+              return <ToolCallBlock key={`c-${block.id}`} call={block} response={responseByCallIndex.get(block.id)} />
+            }
+            if (block.kind === 'tool_response') {
+              const isPaired = block.call_index !== -1 && blocks.some(b => b.kind === 'tool_call' && b.id === block.call_index)
+              if (!isPaired) return <OrphanedToolResponse key={`tr-${block.call_index}-${block.tool_name}`} block={block} />
+            }
+            return null
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AssistantMessage({ msg }: { msg: Message }) {
+  if (msg.error) {
+    return <div className="bubble">{msg.content}</div>
+  }
+
+  const blocks = msg.blocks ?? []
+  const actionBlocks = blocks.filter(b => b.kind !== 'text')
+  const doneBlocks = actionBlocks.filter(b => isActionBlockDone(b, blocks))
+  const activeBlock = actionBlocks.find(b => !isActionBlockDone(b, blocks)) ?? null
+  const textBlocks = blocks.filter((b): b is TextBlock => b.kind === 'text')
+  const hasText = textBlocks.length > 0
+
+  // Response map needed for the edge case: tool_call is done but response not yet arrived
+  const responseByCallIndex = new Map<number, ToolResponseBlock>()
+  for (const b of blocks) {
+    if (b.kind === 'tool_response') responseByCallIndex.set(b.call_index, b)
+  }
+
+  return (
+    <>
+      {doneBlocks.length > 0 && (
+        <ActionsWrapper blocks={doneBlocks} streaming={msg.streaming ?? false} />
+      )}
+      {activeBlock && (
+        activeBlock.kind === 'thinking'
+          ? <ThinkingBlock key={`t-${activeBlock.id}`} block={activeBlock} />
+          : activeBlock.kind === 'tool_call'
+            ? <ToolCallBlock key={`c-${activeBlock.id}`} call={activeBlock} response={responseByCallIndex.get(activeBlock.id)} />
+            : null
+      )}
+      {textBlocks.map((block, i) => (
+        <div key={`tx-${i}`} className="bubble">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}
+          >
+            {block.content}
+          </ReactMarkdown>
+          {msg.streaming && i === textBlocks.length - 1 && <span className="cursor">▋</span>}
+        </div>
+      ))}
+      {msg.streaming && !hasText && (
+        <div className="bubble"><span className="cursor">▋</span></div>
+      )}
+    </>
   )
 }
 
@@ -146,7 +337,7 @@ export default function App() {
     setMessages(prev => [
       ...prev,
       { role: 'user', content: text },
-      { role: 'assistant', content: '', streaming: true },
+      { role: 'assistant', content: '', blocks: [], streaming: true },
     ])
 
     try {
@@ -172,33 +363,128 @@ export default function App() {
           if (!line.startsWith('data: ')) continue
           const payload = JSON.parse(line.slice(6))
 
-          if (payload.delta) {
+          const { type } = payload
+
+          if (type === 'thinking_start') {
             setMessages(prev => {
-              const updated = [...prev]
-              const last = updated[updated.length - 1]
-              updated[updated.length - 1] = { ...last, content: last.content + payload.delta }
-              return updated
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = [...(last.blocks ?? []), { kind: 'thinking' as const, id: payload.index, content: '', done: false }]
+              msgs[msgs.length - 1] = last
+              return msgs
             })
           }
 
-          if (payload.done) {
+          if (type === 'thinking_delta') {
             setMessages(prev => {
-              const updated = [...prev]
-              updated[updated.length - 1] = { ...updated[updated.length - 1], streaming: false }
-              return updated
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = (last.blocks ?? []).map(b =>
+                b.kind === 'thinking' && b.id === payload.index ? { ...b, content: b.content + payload.delta } : b
+              )
+              msgs[msgs.length - 1] = last
+              return msgs
             })
           }
 
-          if (payload.error) {
+          if (type === 'thinking_end') {
             setMessages(prev => {
-              const updated = [...prev]
-              updated[updated.length - 1] = {
-                ...updated[updated.length - 1],
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = (last.blocks ?? []).map(b =>
+                b.kind === 'thinking' && b.id === payload.index ? { ...b, done: true } : b
+              )
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'tool_call_start') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = [
+                ...(last.blocks ?? []),
+                { kind: 'tool_call' as const, id: payload.index, tool_name: payload.tool_name, args: '', done: false },
+              ]
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'tool_call_args_delta') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = (last.blocks ?? []).map(b =>
+                b.kind === 'tool_call' && b.id === payload.index ? { ...b, args: b.args + (payload.delta ?? '') } : b
+              )
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'tool_call_end') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = (last.blocks ?? []).map(b =>
+                b.kind === 'tool_call' && b.id === payload.index
+                  ? { ...b, done: true, args: payload.complete_args || b.args || '' }
+                  : b
+              )
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'tool_response') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = [
+                ...(last.blocks ?? []),
+                { kind: 'tool_response' as const, tool_name: payload.tool_name, call_index: payload.call_index, content: payload.content },
+              ]
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'text_delta') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              const blocks = last.blocks ?? []
+              const lastBlock = blocks[blocks.length - 1]
+              if (lastBlock?.kind === 'text') {
+                last.blocks = [...blocks.slice(0, -1), { ...lastBlock, content: lastBlock.content + payload.delta }]
+              } else {
+                last.blocks = [...blocks, { kind: 'text' as const, content: payload.delta as string }]
+              }
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'done') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], streaming: false }
+              return msgs
+            })
+          }
+
+          if (type === 'error') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              msgs[msgs.length - 1] = {
+                ...msgs[msgs.length - 1],
                 content: `Error: ${payload.error}`,
                 streaming: false,
                 error: true,
               }
-              return updated
+              return msgs
             })
           }
         }
@@ -293,13 +579,10 @@ export default function App() {
         )}
         {messages.map((msg, i) => (
           <div key={i} className={`message ${msg.role} ${msg.error ? 'error' : ''}`}>
-            <div className="bubble">
-              {msg.role === 'assistant'
-                ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({href, children}) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}>{msg.content}</ReactMarkdown>
-                : linkify(msg.content)
-              }
-              {msg.streaming && <span className="cursor">▋</span>}
-            </div>
+            {msg.role === 'assistant'
+              ? <AssistantMessage msg={msg} />
+              : <div className="bubble">{linkify(msg.content)}</div>
+            }
           </div>
         ))}
         <div ref={bottomRef} />
