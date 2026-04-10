@@ -44,7 +44,7 @@ function linkify(text: string): ReactNode[] {
 }
 
 function ThinkingBlock({ block }: { block: ThinkingBlock }) {
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(!block.done)
 
   useEffect(() => {
     if (block.done) setExpanded(false)
@@ -73,10 +73,11 @@ function ThinkingBlock({ block }: { block: ThinkingBlock }) {
 
 function ToolCallBlock({ call, response }: { call: ToolCallBlock; response: ToolResponseBlock | undefined }) {
   const [expanded, setExpanded] = useState(true)
+  const shouldCollapse = call.done && response !== undefined
 
   useEffect(() => {
-    if (call.done && response !== undefined) setExpanded(false)
-  }, [call.done, response])
+    if (shouldCollapse) setExpanded(false)
+  }, [shouldCollapse])
 
   return (
     <div className="op-block tool-block">
