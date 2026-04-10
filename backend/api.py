@@ -140,11 +140,11 @@ class _StreamState:
     block_counter: list[int] = field(default_factory=lambda: [0])
     # pydantic-ai part index -> (block_kind, sse_block_index, tool_call_id)
     open_parts: dict[int, tuple[str, int, str]] = field(default_factory=dict)
-    # tool_call_id -> (tool_name, sse_block_index) — populated when tool_call_end fires
+    # tool_call_id -> (tool_name, sse_block_index) — populated at PartStartEvent so it survives open_parts.clear()
     tcid_to_info: dict[str, tuple[str, int]] = field(default_factory=dict)
 
 
-async def _collect_agent_events(  # noqa: C901, PLR0912
+async def _collect_agent_events(  # noqa: C901, PLR0912, PLR0915
     queue: asyncio.Queue[str | None],
     _ctx: object,
     events: AsyncIterable[AgentStreamEvent],
@@ -168,11 +168,14 @@ async def _collect_agent_events(  # noqa: C901, PLR0912
                     if bt == "thinking":
                         await queue.put(json.dumps({"type": "thinking_end", "index": si}))
                         del state.open_parts[pai_idx]
-                state.open_parts[event.index] = ("tool_call", state.block_counter[0], event.part.tool_call_id)
+                sse_idx = state.block_counter[0]
+                state.open_parts[event.index] = ("tool_call", sse_idx, event.part.tool_call_id)
+                # Populate early so pairing survives if open_parts is cleared before FunctionToolCallEvent
+                state.tcid_to_info[event.part.tool_call_id] = (event.part.tool_name, sse_idx)
                 await queue.put(
                     json.dumps({
                         "type": "tool_call_start",
-                        "index": state.block_counter[0],
+                        "index": sse_idx,
                         "tool_name": event.part.tool_name,
                     }),
                 )
