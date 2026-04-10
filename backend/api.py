@@ -145,8 +145,8 @@ async def chat(req: ChatRequest) -> StreamingResponse:  # noqa: C901, PLR0915
             _ctx: object,
             events: AsyncIterable[AgentStreamEvent],
         ) -> None:
-            # open_parts: pydantic-ai part index -> (block_kind, sse_block_index)
-            open_parts: dict[int, tuple[str, int]] = {}
+            # open_parts: pydantic-ai part index -> (block_kind, sse_block_index, tool_call_id)
+            open_parts: dict[int, tuple[str, int, str]] = {}
             # tool_call_id -> tool_name, for matching FunctionToolResultEvent
             tool_call_ids: dict[str, str] = {}
             next_block = 0
@@ -154,16 +154,16 @@ async def chat(req: ChatRequest) -> StreamingResponse:  # noqa: C901, PLR0915
             async for event in events:
                 if isinstance(event, PartStartEvent):
                     if isinstance(event.part, ThinkingPart):
-                        open_parts[event.index] = ("thinking", next_block)
+                        open_parts[event.index] = ("thinking", next_block, "")
                         await queue.put(json.dumps({"type": "thinking_start", "index": next_block}))
                         next_block += 1
                     elif isinstance(event.part, ToolCallPart):
                         # Close any open thinking blocks
-                        for pai_idx, (bt, si) in list(open_parts.items()):
+                        for pai_idx, (bt, si, _) in list(open_parts.items()):
                             if bt == "thinking":
                                 await queue.put(json.dumps({"type": "thinking_end", "index": si}))
                                 del open_parts[pai_idx]
-                        open_parts[event.index] = ("tool_call", next_block)
+                        open_parts[event.index] = ("tool_call", next_block, event.part.tool_call_id)
                         await queue.put(
                             json.dumps({
                                 "type": "tool_call_start",
@@ -174,14 +174,14 @@ async def chat(req: ChatRequest) -> StreamingResponse:  # noqa: C901, PLR0915
                         next_block += 1
                     elif isinstance(event.part, TextPart):
                         # New model response: close any remaining open blocks
-                        for bt, si in open_parts.values():
+                        for bt, si, _ in open_parts.values():
                             await queue.put(json.dumps({"type": f"{bt}_end", "index": si}))
                         open_parts.clear()
 
                 elif isinstance(event, PartDeltaEvent):
                     if isinstance(event.delta, ThinkingPartDelta):
                         if event.index in open_parts:
-                            _, sse_idx = open_parts[event.index]
+                            _, sse_idx, _ = open_parts[event.index]
                             await queue.put(
                                 json.dumps({
                                     "type": "thinking_delta",
@@ -191,7 +191,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:  # noqa: C901, PLR0915
                             )
                     elif isinstance(event.delta, ToolCallPartDelta) and event.delta.args_delta:
                         if event.index in open_parts:
-                            _, sse_idx = open_parts[event.index]
+                            _, sse_idx, _ = open_parts[event.index]
                             await queue.put(
                                 json.dumps(
                                     {
@@ -206,9 +206,9 @@ async def chat(req: ChatRequest) -> StreamingResponse:  # noqa: C901, PLR0915
 
                 elif isinstance(event, FunctionToolCallEvent):
                     tool_call_ids[event.part.tool_call_id] = event.part.tool_name
-                    # Close the matching open tool_call part
-                    for pai_idx, (bt, si) in list(open_parts.items()):
-                        if bt == "tool_call":
+                    # Close the matching open tool_call part by tool_call_id
+                    for pai_idx, (bt, si, tcid) in list(open_parts.items()):
+                        if bt == "tool_call" and tcid == event.part.tool_call_id:
                             try:
                                 complete_args = (
                                     json.dumps(event.part.args, indent=2)
@@ -234,10 +234,8 @@ async def chat(req: ChatRequest) -> StreamingResponse:  # noqa: C901, PLR0915
                     )
 
             # Close any remaining open parts at stream end
-            for bt, si in open_parts.values():
+            for bt, si, _ in open_parts.values():
                 await queue.put(json.dumps({"type": f"{bt}_end", "index": si}))
-
-            await queue.put(None)  # sentinel
 
         async def run_agent() -> None:
             try:
@@ -252,8 +250,9 @@ async def chat(req: ChatRequest) -> StreamingResponse:  # noqa: C901, PLR0915
                     async for _ in stream.stream_text(delta=True):
                         pass
             except Exception as e:
-                logger.error(f"Stream error: {e}", exc_info=True)
+                logger.error("Stream error: %s", e, exc_info=True)
                 await queue.put(json.dumps({"type": "error", "error": str(e)}))
+            finally:
                 await queue.put(None)
 
         agent_task = asyncio.create_task(run_agent())
