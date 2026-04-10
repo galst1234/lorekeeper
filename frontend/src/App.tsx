@@ -263,7 +263,7 @@ export default function App() {
     setMessages(prev => [
       ...prev,
       { role: 'user', content: text },
-      { role: 'assistant', content: '', streaming: true },
+      { role: 'assistant', content: '', blocks: [], streaming: true },
     ])
 
     try {
@@ -289,33 +289,128 @@ export default function App() {
           if (!line.startsWith('data: ')) continue
           const payload = JSON.parse(line.slice(6))
 
-          if (payload.delta) {
+          const { type } = payload
+
+          if (type === 'thinking_start') {
             setMessages(prev => {
-              const updated = [...prev]
-              const last = updated[updated.length - 1]
-              updated[updated.length - 1] = { ...last, content: last.content + payload.delta }
-              return updated
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = [...(last.blocks ?? []), { kind: 'thinking' as const, id: payload.index, content: '', done: false }]
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'thinking_delta') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = (last.blocks ?? []).map(b =>
+                b.kind === 'thinking' && b.id === payload.index ? { ...b, content: b.content + payload.delta } : b
+              )
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'thinking_end') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = (last.blocks ?? []).map(b =>
+                b.kind === 'thinking' && b.id === payload.index ? { ...b, done: true } : b
+              )
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'tool_call_start') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = [
+                ...(last.blocks ?? []),
+                { kind: 'tool_call' as const, id: payload.index, tool_name: payload.tool_name, args: '', done: false },
+              ]
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'tool_call_args_delta') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = (last.blocks ?? []).map(b =>
+                b.kind === 'tool_call' && b.id === payload.index ? { ...b, args: b.args + (payload.delta ?? '') } : b
+              )
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'tool_call_end') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = (last.blocks ?? []).map(b =>
+                b.kind === 'tool_call' && b.id === payload.index
+                  ? { ...b, done: true, args: b.args || payload.complete_args || '' }
+                  : b
+              )
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'tool_response') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              last.blocks = [
+                ...(last.blocks ?? []),
+                { kind: 'tool_response' as const, tool_name: payload.tool_name, content: payload.content },
+              ]
+              msgs[msgs.length - 1] = last
+              return msgs
+            })
+          }
+
+          if (type === 'text_delta') {
+            setMessages(prev => {
+              const msgs = [...prev]
+              const last = { ...msgs[msgs.length - 1] }
+              const blocks = last.blocks ?? []
+              const lastBlock = blocks[blocks.length - 1]
+              if (lastBlock?.kind === 'text') {
+                last.blocks = [...blocks.slice(0, -1), { ...lastBlock, content: lastBlock.content + payload.delta }]
+              } else {
+                last.blocks = [...blocks, { kind: 'text' as const, content: payload.delta as string }]
+              }
+              msgs[msgs.length - 1] = last
+              return msgs
             })
           }
 
           if (payload.done) {
             setMessages(prev => {
-              const updated = [...prev]
-              updated[updated.length - 1] = { ...updated[updated.length - 1], streaming: false }
-              return updated
+              const msgs = [...prev]
+              msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], streaming: false }
+              return msgs
             })
           }
 
           if (payload.error) {
             setMessages(prev => {
-              const updated = [...prev]
-              updated[updated.length - 1] = {
-                ...updated[updated.length - 1],
+              const msgs = [...prev]
+              msgs[msgs.length - 1] = {
+                ...msgs[msgs.length - 1],
                 content: `Error: ${payload.error}`,
                 streaming: false,
                 error: true,
               }
-              return updated
+              return msgs
             })
           }
         }
@@ -410,13 +505,10 @@ export default function App() {
         )}
         {messages.map((msg, i) => (
           <div key={i} className={`message ${msg.role} ${msg.error ? 'error' : ''}`}>
-            <div className="bubble">
-              {msg.role === 'assistant'
-                ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({href, children}) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}>{msg.content}</ReactMarkdown>
-                : linkify(msg.content)
-              }
-              {msg.streaming && <span className="cursor">▋</span>}
-            </div>
+            {msg.role === 'assistant'
+              ? <AssistantMessage msg={msg} />
+              : <div className="bubble">{linkify(msg.content)}</div>
+            }
           </div>
         ))}
         <div ref={bottomRef} />
