@@ -257,18 +257,25 @@ async def chat(req: ChatRequest) -> StreamingResponse:  # noqa: C901, PLR0915
 
         agent_task = asyncio.create_task(run_agent())
 
+        error_occurred = False
         try:
             while True:
                 item = await queue.get()
                 if item is None:
                     break
+                try:
+                    if json.loads(item).get("type") == "error":
+                        error_occurred = True
+                except Exception:
+                    pass
                 yield f"data: {item}\n\n"
         finally:
             agent_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await agent_task
 
-        yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+        if not error_occurred:
+            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
