@@ -650,18 +650,20 @@ export default function App() {
             )}
           </div>
         </div>
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask about the campaign lore... (Enter to send)"
-          disabled={isLoading}
-          rows={2}
-        />
-        <button onClick={sendMessage} disabled={isLoading || !input.trim()}>
-          {isLoading ? '...' : 'Send'}
-        </button>
+        <div className="input-row">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about the campaign lore... (Enter to send)"
+            disabled={isLoading}
+            rows={2}
+          />
+          <button onClick={sendMessage} disabled={isLoading || !input.trim()}>
+            {isLoading ? '...' : 'Send'}
+          </button>
+        </div>
       </div>
     </div>
   )
