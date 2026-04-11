@@ -86,7 +86,6 @@ class LoreKeeperAgent:
     """Agent that owns session history and active skill state."""
 
     def __init__(self) -> None:
-        self._agent: Agent = create_agent()
         self._sessions: dict[str, list[ModelMessage]] = {}
         self._active_skills: dict[str, str] = {}
 
@@ -141,7 +140,7 @@ class LoreKeeperAgent:
         event_stream_handler: EventStreamHandler = None,
     ) -> AsyncIterator[Any]:
         """Stream a chat response, handling skill dispatch and history management."""
-        async with self._agent.run_stream(
+        async with create_agent().run_stream(
             user_prompt=self._resolve_user_prompt(session_id, message),
             message_history=self._get_history(session_id),
             model=model,
