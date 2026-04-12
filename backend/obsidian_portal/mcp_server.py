@@ -21,7 +21,7 @@ from obsidian_portal.calendar_api import add_calendar_entry, fetch_calendar_entr
 from obsidian_portal.calendar_parser import CalendarDate
 from obsidian_portal.models import Character, CharacterRequest, Page, PageSummary, Quest, QuestStatus, QuestType
 
-_WIKI_LINK_REGEX = re.compile(r"\[\[.*?]]", re.DOTALL)
+_WIKI_LINK_REGEX = re.compile(r"\[\[[^]]*]]")
 
 
 _CAMPAIGN_ID = settings.campaign_id
@@ -140,8 +140,7 @@ async def inject_adventure_log_links_tool(
         link = f"[[{target} | {mention}]]"
 
         already_linked = bool(
-            re.search(r"\[\[.*?" + re.escape(mention) + r".*?]]", body, re.IGNORECASE | re.DOTALL)
-            or re.search(r"\[\[.*?" + re.escape(target.lstrip(":")) + r".*?]]", body, re.IGNORECASE | re.DOTALL),
+            re.search(r"\[\[\s*" + re.escape(target) + r"\s*\|[^]]*]]", body, re.IGNORECASE),
         )
         if already_linked:
             skipped.append(mention)
