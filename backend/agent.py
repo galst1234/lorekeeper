@@ -47,21 +47,21 @@ REASONING_METADATA: dict[ReasoningEffort, dict[str, str]] = {
 
 MODEL_METADATA: dict[ModelChoice, dict[str, str]] = {
     ModelChoice.GPT5_MINI: {
-        "name": "GPT-5 mini",
+        "name": "GPT-5 mini $",
         "description": "Fast and efficient - great for everyday lore lookups",
         "color": "#16141a",
         "default_reasoning": ReasoningEffort.MEDIUM,
     },
     ModelChoice.GPT54_MINI: {
-        "name": "GPT-5.4 mini",
+        "name": "GPT-5.4 mini $x3",
         "description": "Smarter reasoning for complex or multi-part questions",
         "color": "#7a3a10",
         "default_reasoning": ReasoningEffort.NONE,
     },
     ModelChoice.GPT54: {
-        "name": "GPT-5.4",
+        "name": "GPT-5.4 $x10",
         "description": "Most capable - best for nuanced analysis and deep lore dives",
-        "color": "#6a1010",
+        "color": "#FF0000",
         "default_reasoning": ReasoningEffort.NONE,
     },
 }
