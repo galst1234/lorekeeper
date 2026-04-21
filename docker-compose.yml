@@ -5,7 +5,7 @@ services:
   qdrant-mcp:
     <<: *restart
     build: ./backend
-    command: python qdrant_mcp_extended.py
+    command: python -m lorekeeper.qdrant_mcp_extended
     env_file: ./backend/.env
     volumes:
       - fastembed-cache:/root/.cache/fastembed
@@ -13,13 +13,13 @@ services:
   obsidian-mcp:
     <<: *restart
     build: ./backend
-    command: python -m obsidian_portal.mcp_server
+    command: python -m lorekeeper.obsidian_portal.mcp_server
     env_file: ./backend/.env
 
   api:
     <<: *restart
     build: ./backend
-    command: uvicorn api:app --host 0.0.0.0 --port 8001
+    command: uvicorn lorekeeper.api:app --host 0.0.0.0 --port 8001
     env_file: ./backend/.env
     environment:
       QDRANT_MCP_URL: http://qdrant-mcp:8000/mcp
