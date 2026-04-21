@@ -29,7 +29,11 @@ dev = [
     "pre-commit~=4.5",
     "ruff~=0.15",
     "ty>=0.0.17",
+    "pytest~=9.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
@@ -104,12 +108,20 @@ select = [
 ]
 ignore = []
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "PLR2004",   # magic value comparisons are fine in tests
+    "PLR0913",   # many fixtures/params is normal
+    "PLR0917",   # many positional args in parametrized test functions is normal
+    "PLC2701",   # importing private names for white-box unit testing is expected
+    "PLC1901",   # explicit `== ""` in assertions is clearer than `not x`
+    "RUF059",    # unused unpacked vars when only some return values are asserted
+    "E501",      # test assertions and parametrize strings can be long
+]
+
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 unfixable = []
-
-# Allow unused variables when underscore-prefixed.
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
