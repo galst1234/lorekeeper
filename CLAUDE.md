@@ -11,12 +11,12 @@ LoreKeeper is an AI-powered D&D campaign lore assistant. It fetches data from Ob
 ### Backend (Python 3.13, managed with uv)
 ```bash
 cd backend
-uv sync                               # Install dependencies from pyproject.toml
-uv run python agent.py                # Interactive CLI chat
-uv run python obsidian_portal/fetcher.py   # Fetch & ingest data from Obsidian Portal
-uv run python qdrant_mcp_extended.py  # Start Qdrant MCP server (port 8000)
-uv run python -m obsidian_portal.mcp_server  # Start Obsidian MCP server (port 8080)
-uv run uvicorn api:app --host 0.0.0.0 --port 8001  # Start API server
+uv sync                                              # Install dependencies from pyproject.toml
+uv run python -m lorekeeper.agent                    # Interactive CLI chat
+uv run python -m lorekeeper.obsidian_portal.fetcher  # Fetch & ingest data from Obsidian Portal
+uv run python -m lorekeeper.qdrant_mcp_extended      # Start Qdrant MCP server (port 8000)
+uv run python -m lorekeeper.obsidian_portal.mcp_server  # Start Obsidian MCP server (port 8080)
+uv run uvicorn lorekeeper.api:app --host 0.0.0.0 --port 8001  # Start API server
 ```
 
 ### Frontend (React + TypeScript + Vite)
@@ -38,11 +38,11 @@ Pre-configured run configurations for JetBrains IDEs (PyCharm/IntelliJ):
 
 | Name | Type | What it runs |
 |---|---|---|
-| `agent` | Python | `backend/agent.py` — interactive CLI chat |
-| `fetcher` | Python | `backend/obsidian_portal/fetcher.py` — ingest data |
-| `qdrant_mcp_server` | Python | `backend/qdrant_mcp_extended.py` — Qdrant MCP (port 8000) |
-| `obsidian_mcp_server` | Python | `backend/obsidian_portal/mcp_server.py` — Obsidian MCP (port 8080) |
-| `api` | FastAPI | `backend/api.py` with `--reload --port 8001` |
+| `agent` | Python | `backend/src/lorekeeper/agent.py` — interactive CLI chat |
+| `fetcher` | Python | `backend/src/lorekeeper/obsidian_portal/fetcher.py` — ingest data |
+| `qdrant_mcp_server` | Python | `backend/src/lorekeeper/qdrant_mcp_extended.py` — Qdrant MCP (port 8000) |
+| `obsidian_mcp_server` | Python | `backend/src/lorekeeper/obsidian_portal/mcp_server.py` — Obsidian MCP (port 8080) |
+| `api` | FastAPI | `backend/src/lorekeeper/api.py` with `--reload --port 8001` |
 | `dev` | npm | `frontend/` — `npm run dev` |
 | `Compose Deployment` | Docker | `docker-compose.yml` |
 | `Compose Deployment --build` | Docker | `docker-compose.yml --build` |
@@ -79,11 +79,11 @@ cd /d/dev/lorekeeper/backend && uv run pre-commit run --all-files
 2. **Query**: Chat request → `api.py` → `agent.py` (pydantic-ai Agent) → MCP tools on qdrant-mcp/obsidian-mcp → LLM → SSE stream back to frontend
 
 ### Key Files
-- **`backend/agent.py`** — pydantic-ai Agent; connects to both MCP toolsets, strips tool messages from history, has output validator with retry budget
-- **`backend/api.py`** — FastAPI; `/api/chat` (SSE), `/api/fetch` (rate-limited 1/hr), `/api/fetch-status`, `/api/last-fetched`
-- **`backend/qdrant_mcp_extended.py`** — Adds `qdrant-expand-context`, `qdrant-get-document-chunks`, `qdrant-get-chunk` on top of base mcp-server-qdrant
-- **`backend/obsidian_portal/quest_parser.py`** — Parses/renders Obsidian Portal's accordion HTML for quests; must round-trip cleanly
-- **`backend/config.py`** — All env var loading; single source of truth for credentials and model selection
+- **`backend/src/lorekeeper/agent.py`** — pydantic-ai Agent; connects to both MCP toolsets, strips tool messages from history, has output validator with retry budget
+- **`backend/src/lorekeeper/api.py`** — FastAPI; `/api/chat` (SSE), `/api/fetch` (rate-limited 1/hr), `/api/fetch-status`, `/api/last-fetched`
+- **`backend/src/lorekeeper/qdrant_mcp_extended.py`** — Adds `qdrant-expand-context`, `qdrant-get-document-chunks`, `qdrant-get-chunk` on top of base mcp-server-qdrant
+- **`backend/src/lorekeeper/obsidian_portal/quest_parser.py`** — Parses/renders Obsidian Portal's accordion HTML for quests; must round-trip cleanly
+- **`backend/src/lorekeeper/config.py`** — All env var loading; single source of truth for credentials and model selection
 
 ### MCP Tool Notes
 - `qdrant-find` results: metadata field is `"id"` (not `"document_id"`); `document_id` is the *parameter* to `qdrant-expand-context` and `qdrant-get-document-chunks`
