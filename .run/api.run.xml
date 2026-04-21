@@ -3,7 +3,7 @@
     <option name="additionalOptions" value="--reload --port 8001" />
     <option name="file" value="$PROJECT_DIR$/backend/src/lorekeeper/api.py" />
     <module name="lorekeeper" />
-    <option name="ENV_FILES" value="" />
+    <option name="ENV_FILES" value="$PROJECT_DIR$/backend/.env" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
     <option name="SDK_HOME" value="$PROJECT_DIR$/backend/.venv/Scripts/python.exe" />
