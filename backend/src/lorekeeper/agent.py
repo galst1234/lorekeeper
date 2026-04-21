@@ -12,8 +12,8 @@ from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, Text
 from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 
-import skills
-from config import settings
+from lorekeeper import skills
+from lorekeeper.config import settings
 
 type EventStreamHandler = Callable[[Any, AsyncIterable[AgentStreamEvent]], Coroutine[Any, Any, None]] | None
 

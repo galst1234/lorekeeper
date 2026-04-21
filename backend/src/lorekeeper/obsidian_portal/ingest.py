@@ -4,8 +4,8 @@ from fastembed import TextEmbedding
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import PointStruct
 
-from config import settings
-from obsidian_portal.models import Document
+from lorekeeper.config import settings
+from lorekeeper.obsidian_portal.models import Document
 
 
 def chunk_text(text: str, max_chars: int = 800, overlap_chars: int = 150) -> list[str]:

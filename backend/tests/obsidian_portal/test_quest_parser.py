@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from obsidian_portal.models import Quest
-from obsidian_portal.quest_parser import (
+from lorekeeper.obsidian_portal.models import Quest
+from lorekeeper.obsidian_portal.quest_parser import (
     ParsedBody,
     PhaseBlock,
     SubSection,

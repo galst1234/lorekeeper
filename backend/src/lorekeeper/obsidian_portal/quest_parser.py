@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from obsidian_portal.models import Quest, QuestStatus, QuestType
+from lorekeeper.obsidian_portal.models import Quest, QuestStatus, QuestType
 
 # ── Sentinels ──────────────────────────────────────────────────────────────────
 _HIDDEN_SENTINEL = "\x00HIDDEN\x00"

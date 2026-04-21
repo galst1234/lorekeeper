@@ -5,7 +5,7 @@ import os
 from pydantic import BaseModel, Field
 from requests_oauthlib import OAuth1Session
 
-from config import settings
+from lorekeeper.config import settings
 
 USER_AGENT = "ObsidianPortalOAuthTest/1.0"
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), ".op_token.json")

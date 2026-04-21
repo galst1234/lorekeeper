@@ -2,7 +2,7 @@
 
 import pytest
 
-from obsidian_portal.calendar_parser import (
+from lorekeeper.obsidian_portal.calendar_parser import (
     CalendarDate,
     CalendarPage,
     MonthBlock,

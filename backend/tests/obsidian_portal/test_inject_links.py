@@ -2,7 +2,7 @@
 
 import pytest
 
-from obsidian_portal.mcp_server import inject_links
+from lorekeeper.obsidian_portal.link_injector import inject_links
 
 # ── Entity gets injected ──────────────────────────────────────────────────────
 

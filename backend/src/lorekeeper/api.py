@@ -2,7 +2,6 @@ import asyncio
 import contextlib
 import json
 import logging
-import os
 import uuid
 from collections.abc import AsyncGenerator, AsyncIterable
 from dataclasses import dataclass, field
@@ -25,7 +24,7 @@ from pydantic_ai import (
 from pydantic_ai.messages import TextPart, ThinkingPart, ToolCallPart
 from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
 
-from agent import (
+from lorekeeper.agent import (
     MODEL_METADATA,
     REASONING_METADATA,
     LoreKeeperAgent,
@@ -33,7 +32,7 @@ from agent import (
     ReasoningEffort,
     build_model,
 )
-from config import settings
+from lorekeeper.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -82,9 +81,9 @@ async def last_fetched() -> dict:
 async def _run_fetch() -> None:
     proc = await asyncio.create_subprocess_exec(
         "python",
-        "obsidian_portal/fetcher.py",
+        "-m",
+        "lorekeeper.obsidian_portal.fetcher",
         cwd="/app",
-        env={**os.environ, "PYTHONPATH": "/app"},
     )
     exit_code = await proc.wait()
     if exit_code == 0:
