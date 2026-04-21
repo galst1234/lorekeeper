@@ -14,7 +14,7 @@ from mcp_server_qdrant.settings import (
 from pydantic import Field
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 
-from config import settings  # noqa: F401 - must instantiate before EmbeddingProviderSettings reads env
+from lorekeeper.config import settings  # noqa: F401 - must instantiate before EmbeddingProviderSettings reads env
 
 # ---------------------------------------------------------------------------
 # Tool descriptions & server instructions

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from requests_oauthlib import OAuth1Session
 
-from config import settings
-from obsidian_portal.api import fetch_wiki_page, update_wiki_page
-from obsidian_portal.calendar_parser import CalendarDate, add_entry, get_entries, parse_body, render_body
+from lorekeeper.config import settings
+from lorekeeper.obsidian_portal.api import fetch_wiki_page, update_wiki_page
+from lorekeeper.obsidian_portal.calendar_parser import CalendarDate, add_entry, get_entries, parse_body, render_body
 
 
 async def fetch_calendar_entries(

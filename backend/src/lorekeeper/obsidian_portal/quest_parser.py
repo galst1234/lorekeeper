@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from obsidian_portal.models import Quest, QuestStatus, QuestType
+from lorekeeper.obsidian_portal.models import Quest, QuestStatus, QuestType
 
 # ── Sentinels ──────────────────────────────────────────────────────────────────
 _HIDDEN_SENTINEL = "\x00HIDDEN\x00"
@@ -352,7 +352,7 @@ def insert_quest(parsed: ParsedBody, quest: Quest) -> None:
     target_sub.dirty = True
 
 
-def update_quest_data(  # noqa: PLR0913
+def update_quest_data(  # noqa: PLR0913, C901
     parsed: ParsedBody,
     title: str,
     *,
@@ -398,6 +398,11 @@ def update_quest_data(  # noqa: PLR0913
 
     if not new_fields:
         return "no changes"
+
+    if "title" in new_fields:
+        other_titles = {q.title for q in extract_quests(parsed)} - {quest.title}
+        if new_fields["title"] in other_titles:
+            raise ValueError(f"A quest named '{new_fields['title']}' already exists.")
 
     updated = quest.model_copy(update=new_fields)
 

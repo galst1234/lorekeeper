@@ -2,8 +2,8 @@ import asyncio
 
 from requests_oauthlib import OAuth1Session
 
-from obsidian_portal.models import Character, CharacterRequest, Page, Quest, QuestStatus, QuestType
-from obsidian_portal.quest_parser import (
+from lorekeeper.obsidian_portal.models import Character, CharacterRequest, Page, Quest, QuestStatus, QuestType
+from lorekeeper.obsidian_portal.quest_parser import (
     extract_quests,
     insert_quest,
     parse_body,

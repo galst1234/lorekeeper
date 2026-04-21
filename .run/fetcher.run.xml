@@ -14,7 +14,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="RUN_TOOL" value="true" />
-    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/backend/obsidian_portal/fetcher.py" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/backend/src/lorekeeper/obsidian_portal/fetcher.py" />
     <option name="PARAMETERS" value="" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />

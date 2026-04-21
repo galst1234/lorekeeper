@@ -41,3 +41,19 @@ jobs:
         uses: ./.github/actions/ty-check
         with:
           project-dir: backend
+
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: ./.github/actions/setup-python
+        with:
+          project-dir: backend
+
+      - name: Run Pytest
+        uses: ./.github/actions/pytest-check
+        with:
+          project-dir: backend

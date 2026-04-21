@@ -6,11 +6,11 @@ from fastembed import TextEmbedding
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance, VectorParams
 
-from config import settings
-from obsidian_portal.api import fetch_characters, fetch_wiki_pages
-from obsidian_portal.auth import get_authenticated_session_async
-from obsidian_portal.ingest import prepare_document_points, upsert_points
-from obsidian_portal.models import Document
+from lorekeeper.config import settings
+from lorekeeper.obsidian_portal.api import fetch_characters, fetch_wiki_pages
+from lorekeeper.obsidian_portal.auth import get_authenticated_session_async
+from lorekeeper.obsidian_portal.ingest import prepare_document_points, upsert_points
+from lorekeeper.obsidian_portal.models import Document
 
 
 async def main() -> None:
