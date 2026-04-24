@@ -34,6 +34,7 @@ interface Message {
 
 interface SkillOption {
   id: string
+  title: string
   description: string
 }
 
@@ -757,7 +758,7 @@ export default function App() {
                     onMouseEnter={() => setSlashIndex(i)}
                     onMouseDown={e => { e.preventDefault(); selectSkill(skill) }}
                   >
-                    <span className="slash-menu-item-name">/{skill.id}</span>
+                    <span className="slash-menu-item-name">{skill.title}</span>
                     <span className="slash-menu-item-desc">{skill.description}</span>
                   </div>
                 ))}

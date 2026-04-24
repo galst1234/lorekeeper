@@ -2,12 +2,18 @@ from collections.abc import Callable
 
 SKILLS: dict[str, Callable[[str], str]] = {}
 SKILL_DESCRIPTIONS: dict[str, str] = {}
+SKILL_TITLES: dict[str, str] = {}
 
 
-def _register(name: str, description: str = "") -> Callable[[Callable[[str], str]], Callable[[str], str]]:
+def _register(
+    name: str,
+    description: str = "",
+    title: str = "",
+) -> Callable[[Callable[[str], str]], Callable[[str], str]]:
     def decorator(fn: Callable[[str], str]) -> Callable[[str], str]:
         SKILLS[name] = fn
         SKILL_DESCRIPTIONS[name] = description
+        SKILL_TITLES[name] = title
         return fn
 
     return decorator
@@ -22,6 +28,7 @@ def dispatch(name: str, args: str) -> str:
 
 @_register(
     "chores",
+    title="/chores [Adventure Log Title]",
     description="Process an adventure log: create characters, inject links, add calendar entry, update quests",
 )
 def chores_skill(args: str) -> str:
