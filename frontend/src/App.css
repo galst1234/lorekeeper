@@ -428,6 +428,7 @@ body {
   gap: 10px;
   flex: 1;
   align-items: flex-end;
+  position: relative;
 }
 
 .input-area textarea {
@@ -685,4 +686,80 @@ body {
   .input-row {
     align-items: flex-end;
   }
+}
+
+/* Slash command menu */
+.slash-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  background: #1a1720;
+  border: 1px solid #3a2d1a;
+  border-radius: 4px;
+  min-width: 320px;
+  max-width: 480px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.slash-menu-items {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.slash-menu-items::-webkit-scrollbar {
+  width: 6px;
+}
+
+.slash-menu-items::-webkit-scrollbar-track {
+  background: #1a1720;
+}
+
+.slash-menu-items::-webkit-scrollbar-thumb {
+  background: #3a2d1a;
+  border-radius: 3px;
+}
+
+.slash-menu-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: background 0.15s;
+}
+
+.slash-menu-item:not(:last-child) {
+  border-bottom: 1px solid #2a2030;
+}
+
+.slash-menu-item:hover {
+  background: #221e2a;
+}
+
+.slash-menu-item.selected {
+  background: #1e1a28;
+}
+
+.slash-menu-item-name {
+  font-size: 0.9rem;
+  color: #e8e0d0;
+  font-family: 'Courier New', monospace;
+}
+
+.slash-menu-item-desc {
+  font-size: 0.75rem;
+  color: #6a5840;
+  font-style: italic;
+}
+
+.slash-menu-footer {
+  padding: 6px 14px;
+  font-size: 0.72rem;
+  color: #5a5070;
+  border-top: 1px solid #2a2030;
+  background: #16141a;
+  text-align: right;
+  letter-spacing: 0.04em;
 }

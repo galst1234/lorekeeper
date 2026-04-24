@@ -604,7 +604,7 @@ export default function App() {
           if (filtered.length > 0) {
             setSlashFilter(fragment)
             setSlashMenuOpen(true)
-            setSlashIndex(0)
+            setSlashIndex(prev => (prev < filtered.length ? prev : 0))
             return
           }
         }
