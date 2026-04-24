@@ -595,19 +595,15 @@ export default function App() {
     const cursor = e.target.selectionStart ?? val.length
     const textBeforeCursor = val.slice(0, cursor)
     const lastSlash = textBeforeCursor.lastIndexOf('/')
-    if (lastSlash !== -1) {
-      const charBefore = lastSlash > 0 ? textBeforeCursor[lastSlash - 1] : null
-      const isWordBoundary = charBefore === null || /\s/.test(charBefore)
-      if (isWordBoundary) {
-        const fragment = textBeforeCursor.slice(lastSlash + 1)
-        if (!fragment.includes(' ')) {
-          const filtered = skills.filter(s => s.id.startsWith(fragment))
-          if (filtered.length > 0) {
-            setSlashFilter(fragment)
-            setSlashMenuOpen(true)
-            setSlashIndex(prev => (prev < filtered.length ? prev : 0))
-            return
-          }
+    if (lastSlash === 0) {
+      const fragment = textBeforeCursor.slice(1)
+      if (!fragment.includes(' ')) {
+        const filtered = skills.filter(s => s.id.startsWith(fragment))
+        if (filtered.length > 0) {
+          setSlashFilter(fragment)
+          setSlashMenuOpen(true)
+          setSlashIndex(prev => (prev < filtered.length ? prev : 0))
+          return
         }
       }
     }
