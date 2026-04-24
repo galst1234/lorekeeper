@@ -32,6 +32,14 @@ interface Message {
   error?: boolean
 }
 
+interface SkillOption {
+  id: string
+  title: string
+  description: string
+}
+
+const SHOW_SKILL_HINT = true
+
 const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g
 
 function linkify(text: string): ReactNode[] {
@@ -261,8 +269,15 @@ export default function App() {
   const [reasoningEffort, setReasoningEffort] = useState<string>(getOrCreateReasoningEffort)
   const [reasoningDropdownOpen, setReasoningDropdownOpen] = useState(false)
   const reasoningDropdownRef = useRef<HTMLDivElement>(null)
+  const [skills, setSkills] = useState<SkillOption[]>([])
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false)
+  const [slashFilter, setSlashFilter] = useState('')
+  const [slashIndex, setSlashIndex] = useState(0)
+  const slashMenuRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  const filteredSkills = skills.filter(s => s.id.startsWith(slashFilter))
 
   async function loadFetchStatus() {
     const d = await fetch('/api/fetch-status').then(r => r.json())
@@ -283,6 +298,10 @@ export default function App() {
     fetch('/api/reasoning-levels')
       .then(r => r.json())
       .then(d => setReasoningLevels(d))
+      .catch(() => {})
+    fetch('/api/skills')
+      .then(r => r.json())
+      .then(d => setSkills(d))
       .catch(() => {})
   }, [])
 
@@ -326,6 +345,17 @@ export default function App() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [reasoningDropdownOpen])
+
+  useEffect(() => {
+    if (!slashMenuOpen) return
+    function handleClickOutside(e: globalThis.MouseEvent) {
+      if (slashMenuRef.current && !slashMenuRef.current.contains(e.target as Node)) {
+        setSlashMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [slashMenuOpen])
 
   async function sendMessage() {
     const text = input.trim()
@@ -521,6 +551,27 @@ export default function App() {
     setMessages([])
   }
 
+  function selectSkill(skill: SkillOption) {
+    const cursor = inputRef.current?.selectionStart ?? input.length
+    const textBeforeCursor = input.slice(0, cursor)
+    const lastSlash = textBeforeCursor.lastIndexOf('/')
+    if (lastSlash === -1) {
+      setSlashMenuOpen(false)
+      return
+    }
+    const textAfterCursor = input.slice(cursor)
+    const newInput = input.slice(0, lastSlash) + '/' + skill.id + ' ' + textAfterCursor
+    setInput(newInput)
+    setSlashMenuOpen(false)
+    setTimeout(() => {
+      if (inputRef.current) {
+        const newCursor = lastSlash + skill.id.length + 2
+        inputRef.current.focus()
+        inputRef.current.setSelectionRange(newCursor, newCursor)
+      }
+    }, 0)
+  }
+
   function handleModelChange(value: string, e: MouseEvent) {
     e.stopPropagation()
     setModel(value)
@@ -538,7 +589,53 @@ export default function App() {
     localStorage.setItem('lorekeeper_reasoning_effort', value)
   }
 
+  function handleInputChange(e: ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value
+    setInput(val)
+    const cursor = e.target.selectionStart ?? val.length
+    const textBeforeCursor = val.slice(0, cursor)
+    const lastSlash = textBeforeCursor.lastIndexOf('/')
+    if (lastSlash !== -1) {
+      const charBefore = lastSlash > 0 ? textBeforeCursor[lastSlash - 1] : null
+      const isWordBoundary = charBefore === null || /\s/.test(charBefore)
+      if (isWordBoundary) {
+        const fragment = textBeforeCursor.slice(lastSlash + 1)
+        if (!fragment.includes(' ')) {
+          const filtered = skills.filter(s => s.id.startsWith(fragment))
+          if (filtered.length > 0) {
+            setSlashFilter(fragment)
+            setSlashMenuOpen(true)
+            setSlashIndex(prev => (prev < filtered.length ? prev : 0))
+            return
+          }
+        }
+      }
+    }
+    setSlashMenuOpen(false)
+  }
+
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (slashMenuOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSlashIndex(i => (i + 1) % filteredSkills.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSlashIndex(i => (i - 1 + filteredSkills.length) % filteredSkills.length)
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        if (filteredSkills[slashIndex]) selectSkill(filteredSkills[slashIndex])
+        return
+      }
+      if (e.key === 'Escape') {
+        setSlashMenuOpen(false)
+        return
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       sendMessage()
@@ -651,10 +748,30 @@ export default function App() {
           </div>
         </div>
         <div className="input-row">
+          {slashMenuOpen && filteredSkills.length > 0 && (
+            <div className="slash-menu" ref={slashMenuRef}>
+              <div className="slash-menu-items">
+                {filteredSkills.map((skill, i) => (
+                  <div
+                    key={skill.id}
+                    className={`slash-menu-item${i === slashIndex ? ' selected' : ''}`}
+                    onMouseEnter={() => setSlashIndex(i)}
+                    onMouseDown={e => { e.preventDefault(); selectSkill(skill) }}
+                  >
+                    <span className="slash-menu-item-name">{skill.title}</span>
+                    <span className="slash-menu-item-desc">{skill.description}</span>
+                  </div>
+                ))}
+              </div>
+              {SHOW_SKILL_HINT && (
+                <div className="slash-menu-footer">↵ to select</div>
+              )}
+            </div>
+          )}
           <textarea
             ref={inputRef}
             value={input}
-            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Ask about the campaign lore... (Enter to send)"
             disabled={isLoading}
