@@ -1,19 +1,24 @@
 from collections.abc import Callable
+from dataclasses import dataclass, field
 
-SKILLS: dict[str, Callable[[str], str]] = {}
-SKILL_DESCRIPTIONS: dict[str, str] = {}
-SKILL_TITLES: dict[str, str] = {}
+
+@dataclass
+class SkillMeta:
+    fn: Callable[[str], str]
+    title: str = field(default="")
+    description: str = field(default="")
+
+
+SKILLS: dict[str, SkillMeta] = {}
 
 
 def _register(
     name: str,
-    description: str = "",
     title: str = "",
+    description: str = "",
 ) -> Callable[[Callable[[str], str]], Callable[[str], str]]:
     def decorator(fn: Callable[[str], str]) -> Callable[[str], str]:
-        SKILLS[name] = fn
-        SKILL_DESCRIPTIONS[name] = description
-        SKILL_TITLES[name] = title
+        SKILLS[name] = SkillMeta(fn=fn, title=title, description=description)
         return fn
 
     return decorator
@@ -23,7 +28,7 @@ def dispatch(name: str, args: str) -> str:
     """Look up and invoke a skill by name, or return an error message."""
     if name not in SKILLS:
         return f"Unknown skill: /{name}. Available skills: {sorted(SKILLS)}"
-    return SKILLS[name](args)
+    return SKILLS[name].fn(args)
 
 
 @_register(

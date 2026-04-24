@@ -33,7 +33,7 @@ from lorekeeper.agent import (
     build_model,
 )
 from lorekeeper.config import settings
-from lorekeeper.skills import SKILL_DESCRIPTIONS, SKILL_TITLES, SKILLS
+from lorekeeper.skills import SKILLS
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +69,8 @@ async def get_reasoning_levels() -> list[dict[str, str]]:
 @app.get("/api/skills")
 async def get_skills() -> list[dict[str, str]]:
     return [
-        {"id": name, "title": SKILL_TITLES.get(name) or f"/{name}", "description": SKILL_DESCRIPTIONS.get(name, "")}
-        for name in SKILLS
+        {"id": name, "title": meta.title or f"/{name}", "description": meta.description}
+        for name, meta in SKILLS.items()
     ]
 
 
