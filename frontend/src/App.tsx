@@ -30,6 +30,7 @@ interface Message {
   blocks?: Block[]       // assistant messages only
   streaming?: boolean
   error?: boolean
+  stopped?: boolean
 }
 
 interface SkillOption {
@@ -79,9 +80,9 @@ function ThinkingBlock({ block }: { block: ThinkingBlock }) {
   )
 }
 
-function ToolCallBlock({ call, response }: { call: ToolCallBlock; response: ToolResponseBlock | undefined }) {
+function ToolCallBlock({ call, response, stopped }: { call: ToolCallBlock; response: ToolResponseBlock | undefined; stopped?: boolean }) {
   const [expanded, setExpanded] = useState(true)
-  const shouldCollapse = call.done && response !== undefined
+  const shouldCollapse = call.done && (response !== undefined || stopped)
 
   useEffect(() => {
     if (shouldCollapse) setExpanded(false)
@@ -133,17 +134,17 @@ function OrphanedToolResponse({ block }: { block: ToolResponseBlock }) {
   )
 }
 
-function isActionBlockDone(block: Block, allBlocks: Block[]): boolean {
+function isActionBlockDone(block: Block, allBlocks: Block[], stopped?: boolean): boolean {
   if (block.kind === 'tool_response') return true
   if (block.kind === 'thinking') return block.done
   if (block.kind === 'tool_call') {
     if (!block.done) return false
-    return allBlocks.some(b => b.kind === 'tool_response' && b.call_index === block.id)
+    return stopped === true || allBlocks.some(b => b.kind === 'tool_response' && b.call_index === block.id)
   }
   return true
 }
 
-function ActionsWrapper({ blocks, streaming }: { blocks: Block[]; streaming: boolean }) {
+function ActionsWrapper({ blocks, streaming, stopped }: { blocks: Block[]; streaming: boolean; stopped?: boolean }) {
   const [expanded, setExpanded] = useState(false)
 
   const responseByCallIndex = new Map<number, ToolResponseBlock>()
@@ -173,7 +174,7 @@ function ActionsWrapper({ blocks, streaming }: { blocks: Block[]; streaming: boo
               return <ThinkingBlock key={`t-${block.id}`} block={block} />
             }
             if (block.kind === 'tool_call') {
-              return <ToolCallBlock key={`c-${block.id}`} call={block} response={responseByCallIndex.get(block.id)} />
+              return <ToolCallBlock key={`c-${block.id}`} call={block} response={responseByCallIndex.get(block.id)} stopped={stopped} />
             }
             if (block.kind === 'tool_response') {
               const isPaired = block.call_index !== -1 && blocks.some(b => b.kind === 'tool_call' && b.id === block.call_index)
@@ -194,8 +195,8 @@ function AssistantMessage({ msg }: { msg: Message }) {
 
   const blocks = msg.blocks ?? []
   const actionBlocks = blocks.filter(b => b.kind !== 'text')
-  const doneBlocks = actionBlocks.filter(b => isActionBlockDone(b, blocks))
-  const activeBlock = actionBlocks.find(b => !isActionBlockDone(b, blocks)) ?? null
+  const doneBlocks = actionBlocks.filter(b => isActionBlockDone(b, blocks, msg.stopped))
+  const activeBlock = actionBlocks.find(b => !isActionBlockDone(b, blocks, msg.stopped)) ?? null
   const textBlocks = blocks.filter((b): b is TextBlock => b.kind === 'text')
   const hasText = textBlocks.length > 0
 
@@ -208,13 +209,13 @@ function AssistantMessage({ msg }: { msg: Message }) {
   return (
     <>
       {doneBlocks.length > 0 && (
-        <ActionsWrapper blocks={doneBlocks} streaming={msg.streaming ?? false} />
+        <ActionsWrapper blocks={doneBlocks} streaming={msg.streaming ?? false} stopped={msg.stopped} />
       )}
       {activeBlock && (
         activeBlock.kind === 'thinking'
           ? <ThinkingBlock key={`t-${activeBlock.id}`} block={activeBlock} />
           : activeBlock.kind === 'tool_call'
-            ? <ToolCallBlock key={`c-${activeBlock.id}`} call={activeBlock} response={responseByCallIndex.get(activeBlock.id)} />
+            ? <ToolCallBlock key={`c-${activeBlock.id}`} call={activeBlock} response={responseByCallIndex.get(activeBlock.id)} stopped={msg.stopped} />
             : null
       )}
       {textBlocks.map((block, i) => (
@@ -230,6 +231,9 @@ function AssistantMessage({ msg }: { msg: Message }) {
       ))}
       {msg.streaming && !hasText && (
         <div className="bubble"><span className="cursor">▋</span></div>
+      )}
+      {msg.stopped && (
+        <div className="stopped-indicator">— Response stopped.</div>
       )}
     </>
   )
@@ -276,6 +280,7 @@ export default function App() {
   const slashMenuRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const filteredSkills = skills.filter(s => s.id.startsWith(slashFilter))
 
@@ -370,11 +375,15 @@ export default function App() {
       { role: 'assistant', content: '', blocks: [], streaming: true },
     ])
 
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, session_id: sessionId, model, reasoning_effort: reasoningEffort }),
+        signal: controller.signal,
       })
 
       const reader = response.body!.getReader()
@@ -520,17 +529,35 @@ export default function App() {
         }
       }
     } catch (err) {
-      setMessages(prev => {
-        const updated = [...prev]
-        updated[updated.length - 1] = {
-          ...updated[updated.length - 1],
-          content: `Error: ${(err as Error).message}`,
-          streaming: false,
-          error: true,
-        }
-        return updated
-      })
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setMessages(prev => {
+          const updated = [...prev]
+          const last = { ...updated[updated.length - 1] }
+          last.blocks = (last.blocks ?? []).map(b => {
+            if ((b.kind === 'thinking' || b.kind === 'tool_call') && !b.done) {
+              return { ...b, done: true }
+            }
+            return b
+          })
+          last.streaming = false
+          last.stopped = true
+          updated[updated.length - 1] = last
+          return updated
+        })
+      } else {
+        setMessages(prev => {
+          const updated = [...prev]
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            content: `Error: ${(err as Error).message}`,
+            streaming: false,
+            error: true,
+          }
+          return updated
+        })
+      }
     } finally {
+      abortControllerRef.current = null
       setIsLoading(false)
       setTimeout(() => inputRef.current?.focus(), 0)
     }
@@ -773,9 +800,10 @@ export default function App() {
             disabled={isLoading}
             rows={2}
           />
-          <button onClick={sendMessage} disabled={isLoading || !input.trim()}>
-            {isLoading ? '...' : 'Send'}
-          </button>
+          {isLoading
+            ? <button className="stop-btn" onClick={() => abortControllerRef.current?.abort()}>Stop</button>
+            : <button onClick={sendMessage} disabled={!input.trim()}>Send</button>
+          }
         </div>
       </div>
     </div>

@@ -763,3 +763,21 @@ body {
   text-align: right;
   letter-spacing: 0.04em;
 }
+
+.stop-btn {
+  background: #5a1010 !important;
+  border-color: #7a2020 !important;
+  color: #f0d0d0 !important;
+}
+
+.stop-btn:hover {
+  background: #7a2020 !important;
+}
+
+.stopped-indicator {
+  font-size: 0.82rem;
+  color: #7a6040;
+  font-style: italic;
+  margin-top: 0.4rem;
+  padding: 0 0.25rem;
+}
