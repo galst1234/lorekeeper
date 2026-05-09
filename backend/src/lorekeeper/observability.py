@@ -1,5 +1,4 @@
 import logging
-import sys
 
 from opentelemetry import metrics, trace
 from opentelemetry._logs import set_logger_provider  # noqa: PLC2701
@@ -18,6 +17,7 @@ from lorekeeper.config import settings
 
 
 def setup_observability(service_name: str) -> tuple[trace.Tracer, metrics.Meter]:
+    logging.basicConfig()  # idempotent; ensures stdout logging for services that don't call it
     if not settings.enable_tracing:
         return trace.get_tracer(service_name), metrics.get_meter(service_name)
 
@@ -60,6 +60,5 @@ def setup_observability(service_name: str) -> tuple[trace.Tracer, metrics.Meter]
     )
     root_logger = logging.getLogger()
     root_logger.addHandler(LoggingHandler(level=logging.DEBUG, logger_provider=logger_provider))
-    root_logger.addHandler(logging.StreamHandler(sys.stdout))
 
     return trace.get_tracer(service_name), metrics.get_meter(service_name)

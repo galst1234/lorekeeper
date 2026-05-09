@@ -43,12 +43,11 @@ async def main() -> None:
             encoding="utf-8",
         )
         print("Wrote last_fetched.json")
-
-    elapsed = time.monotonic() - start
-    _ingest_duration.record(elapsed)
-    _doc_counter.add(len(docs))
-    _chunk_counter.add(total_chunks)
-    logger.info("Ingest complete: %d docs, %d chunks in %.1fs", len(docs), total_chunks, elapsed)
+        elapsed = time.monotonic() - start
+        _ingest_duration.record(elapsed)
+        _doc_counter.add(len(docs))
+        _chunk_counter.add(total_chunks)
+        logger.info("Ingest complete: %d docs, %d chunks in %.1fs", len(docs), total_chunks, elapsed)
 
 
 async def _setup_qdrant() -> AsyncQdrantClient:
