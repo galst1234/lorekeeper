@@ -47,5 +47,10 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default=Path("."))
     vector_name: str = "fast-bge-base-en-v1.5"
 
+    # OpenObserve / OpenTelemetry
+    open_observe_url: str = ""
+    open_observe_api_key: str = ""
+    enable_tracing: bool = False
+
 
 settings = Settings()  # type: ignore[call-arg]
