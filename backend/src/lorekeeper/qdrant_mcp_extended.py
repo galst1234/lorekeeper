@@ -15,6 +15,7 @@ from pydantic import Field
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 from lorekeeper.config import settings  # noqa: F401 - must instantiate before EmbeddingProviderSettings reads env
+from lorekeeper.observability import setup_observability
 
 # ---------------------------------------------------------------------------
 # Tool descriptions & server instructions
@@ -330,6 +331,8 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
             description=TOOL_GET_DOCUMENT_CHUNKS_DESCRIPTION,
         )
 
+
+setup_observability("lorekeeper-qdrant-mcp")
 
 # Create the server instance
 mcp = ExtendedQdrantMCPServer(
