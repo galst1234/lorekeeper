@@ -1,5 +1,7 @@
 import asyncio
 import json
+import logging
+import time
 from datetime import UTC, datetime
 
 from fastembed import TextEmbedding
@@ -7,27 +9,45 @@ from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance, VectorParams
 
 from lorekeeper.config import settings
+from lorekeeper.observability import setup_observability
 from lorekeeper.obsidian_portal.api import fetch_characters, fetch_wiki_pages
 from lorekeeper.obsidian_portal.auth import get_authenticated_session_async
 from lorekeeper.obsidian_portal.ingest import prepare_document_points, upsert_points
 from lorekeeper.obsidian_portal.models import Document
 
+logger = logging.getLogger(__name__)
+
+_tracer, _meter = setup_observability("lorekeeper-fetcher")
+_doc_counter = _meter.create_counter("lorekeeper.ingest.documents", description="Documents ingested per run")
+_chunk_counter = _meter.create_counter("lorekeeper.ingest.chunks", description="Chunks stored per run")
+_ingest_duration = _meter.create_histogram(
+    "lorekeeper.ingest.duration_seconds",
+    description="Wall time for a full fetch-ingest run",
+)
+
 
 async def main() -> None:
-    fetched_at = datetime.now(UTC)
-    qdrant_client = await _setup_qdrant()
-    print("Setting up authenticated session...")
-    session = await get_authenticated_session_async()
-    docs: list[Document] = []
-    docs += await fetch_wiki_pages(session, settings.campaign_id)
-    docs += await fetch_characters(session, settings.campaign_id, enrich=True)
-    embed_model = _load_embedding_model()
-    await _ingest_documents(docs, embed_model, qdrant_client)
-    (settings.data_dir / "last_fetched.json").write_text(
-        json.dumps({"fetched_at": fetched_at.isoformat()}),
-        encoding="utf-8",
-    )
-    print("Wrote last_fetched.json")
+    start = time.monotonic()
+    with _tracer.start_as_current_span("fetcher.main"):
+        fetched_at = datetime.now(UTC)
+        qdrant_client = await _setup_qdrant()
+        print("Setting up authenticated session...")
+        session = await get_authenticated_session_async()
+        docs: list[Document] = []
+        docs += await fetch_wiki_pages(session, settings.campaign_id)
+        docs += await fetch_characters(session, settings.campaign_id, enrich=True)
+        embed_model = _load_embedding_model()
+        total_chunks = await _ingest_documents(docs, embed_model, qdrant_client)
+        (settings.data_dir / "last_fetched.json").write_text(
+            json.dumps({"fetched_at": fetched_at.isoformat()}),
+            encoding="utf-8",
+        )
+        print("Wrote last_fetched.json")
+        elapsed = time.monotonic() - start
+        _ingest_duration.record(elapsed)
+        _doc_counter.add(len(docs))
+        _chunk_counter.add(total_chunks)
+        logger.info("Ingest complete: %d docs, %d chunks in %.1fs", len(docs), total_chunks, elapsed)
 
 
 async def _setup_qdrant() -> AsyncQdrantClient:
@@ -57,11 +77,14 @@ async def _ingest_documents(
     docs: list[Document],
     embed_model: TextEmbedding,
     qdrant_client: AsyncQdrantClient,
-) -> None:
+) -> int:
+    total_chunks = 0
     for i, doc in enumerate(docs):
         print(f"Processing document {i + 1}")
         points = await asyncio.to_thread(prepare_document_points, doc, embed_model)
+        total_chunks += len(points)
         await upsert_points(qdrant_client, collection_name=settings.collection_name, points=points)
+    return total_chunks
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ from fastmcp import FastMCP
 from requests_oauthlib import OAuth1Session
 
 from lorekeeper.config import settings
+from lorekeeper.observability import setup_observability
 from lorekeeper.obsidian_portal.api import (
     create_character,
     create_quest,
@@ -32,6 +33,8 @@ from lorekeeper.obsidian_portal.models import (
 _CAMPAIGN_ID: str = settings.campaign_id
 _QUEST_LOG_PAGE_ID: str = settings.quest_log_page_id
 _CALENDAR_PAGE_ID: str = settings.calendar_page_id
+
+setup_observability("lorekeeper-obsidian-mcp")
 
 mcp = FastMCP(
     name="obsidian-portal",

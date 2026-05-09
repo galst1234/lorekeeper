@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel
 from pydantic_ai import (
     AgentStreamEvent,
@@ -33,9 +34,24 @@ from lorekeeper.agent import (
     build_model,
 )
 from lorekeeper.config import settings
+from lorekeeper.observability import setup_observability
 from lorekeeper.skills import SKILLS
 
 logger = logging.getLogger(__name__)
+
+_tracer, _meter = setup_observability("lorekeeper-api")
+_session_counter = _meter.create_up_down_counter(
+    "lorekeeper.chat.sessions",
+    description="Number of active chat sessions",
+)
+_tool_call_counter = _meter.create_counter(
+    "lorekeeper.chat.tool_calls",
+    description="Number of MCP tool calls made by the agent",
+)
+_token_counter = _meter.create_counter(
+    "lorekeeper.tokens.used",
+    description="LLM tokens consumed",
+)
 
 app = FastAPI(title="LoreKeeper API")
 
@@ -45,6 +61,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+FastAPIInstrumentor.instrument_app(app)
 
 agent = LoreKeeperAgent()
 
@@ -242,6 +259,7 @@ async def _collect_agent_events(  # noqa: C901, PLR0912, PLR0915
                         json.dumps({"type": "tool_call_end", "index": si, "complete_args": complete_args}),
                     )
                     state.tcid_to_info[event.part.tool_call_id] = (event.part.tool_name, si)
+                    _tool_call_counter.add(1, {"tool_name": event.part.tool_name})
                     del state.open_parts[pai_idx]
                     break
 
@@ -284,6 +302,7 @@ async def _run_agent_task(  # noqa: PLR0913
     async def _handler(_ctx: object, evts: AsyncIterable[AgentStreamEvent]) -> None:
         await _collect_agent_events(queue, _ctx, evts, state)
 
+    stream_ref: object = None
     try:
         async with agent_instance.chat_stream(
             session_id,
@@ -292,9 +311,19 @@ async def _run_agent_task(  # noqa: PLR0913
             model_settings=run_settings,
             event_stream_handler=_handler,
         ) as stream:
+            stream_ref = stream
             async for delta in stream.stream_text(delta=True):
                 if delta:
                     await queue.put(json.dumps({"type": "text_delta", "delta": delta}))
+        try:
+            usage = stream_ref.usage()  # type: ignore[union-attr]
+            model_label = getattr(run_model, "model_name", str(run_model))
+            if getattr(usage, "request_tokens", None):
+                _token_counter.add(usage.request_tokens, {"model": model_label, "type": "input"})
+            if getattr(usage, "response_tokens", None):
+                _token_counter.add(usage.response_tokens, {"model": model_label, "type": "output"})
+        except (AttributeError, TypeError):
+            pass
     except Exception as e:
         logger.error("Stream error: %s", e, exc_info=True)
         await queue.put(json.dumps({"type": "error", "error": str(e)}))
@@ -312,6 +341,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     )
 
     async def event_stream() -> AsyncGenerator[str]:
+        _session_counter.add(1)
         queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=128)
         agent_task = asyncio.create_task(
             _run_agent_task(
@@ -339,6 +369,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
             agent_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await agent_task
+            _session_counter.add(-1)
         if not error_occurred:
             yield f"data: {json.dumps({'type': 'done', 'session_id': session_id})}\n\n"
 
