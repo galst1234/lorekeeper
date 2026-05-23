@@ -17,7 +17,7 @@ from lorekeeper.config import settings
 
 type EventStreamHandler = Callable[[Any, AsyncIterable[AgentStreamEvent]], Coroutine[Any, Any, None]] | None
 
-MAX_HISTORY_MESSAGES = 20
+MAX_HISTORY_TURNS = 10
 
 
 class ModelChoice(StrEnum):
@@ -82,6 +82,48 @@ def strip_tool_messages(messages: list[ModelMessage]) -> list[ModelMessage]:
     return clean
 
 
+def _find_turn_boundary(messages: list[ModelMessage], max_turns: int) -> int | None:
+    """Find the index of the max_turns-th user turn from the end, or None if fewer turns exist."""
+    turn_count = 0
+    for i in range(len(messages) - 1, -1, -1):
+        msg = messages[i]
+        if isinstance(msg, ModelRequest) and any(isinstance(p, UserPromptPart) for p in msg.parts):
+            turn_count += 1
+            if turn_count == max_turns:
+                return i
+    return None
+
+
+def _apply_trim_to_message(msg: ModelMessage, i: int, boundary: int) -> ModelMessage | None:
+    """Transform a message: keep as-is if recent, strip tools if older. Return None if discarded."""
+    if i >= boundary:
+        return msg
+    if isinstance(msg, ModelRequest):
+        kept = [p for p in msg.parts if isinstance(p, UserPromptPart)]
+        return ModelRequest(parts=kept) if kept else None
+    if isinstance(msg, ModelResponse):
+        kept_parts = [p for p in msg.parts if isinstance(p, (TextPart, ThinkingPart))]
+        return (
+            ModelResponse(parts=kept_parts, model_name=msg.model_name, timestamp=msg.timestamp) if kept_parts else None
+        )
+    return None
+
+
+def trim_history(messages: list[ModelMessage], max_turns: int) -> list[ModelMessage]:
+    """Return history with the last max_turns kept intact; older turns stripped of tool messages.
+
+    A 'turn' is a ModelRequest containing a UserPromptPart (not a tool-result request).
+    TextPart and ThinkingPart from older turns are preserved so the agent can still read
+    its own prior summaries without carrying raw tool results indefinitely.
+    """
+    boundary = _find_turn_boundary(messages, max_turns)
+    if boundary is None:
+        return messages
+    return [
+        trimmed for i, msg in enumerate(messages) if (trimmed := _apply_trim_to_message(msg, i, boundary)) is not None
+    ]
+
+
 class LoreKeeperAgent:
     """Agent that owns session history and active skill state."""
 
@@ -116,14 +158,16 @@ class LoreKeeperAgent:
     def _get_history(self, session_id: str) -> list[ModelMessage] | None:
         """Return trimmed message history for this session."""
         history = self._sessions.get(session_id)
-        return history[-MAX_HISTORY_MESSAGES:] if history and len(history) > MAX_HISTORY_MESSAGES else history
+        if not history:
+            return None
+        return trim_history(history, MAX_HISTORY_TURNS)
 
     def _finalize(self, session_id: str, messages: list[ModelMessage]) -> None:
-        """Update history and clear active skill if [SKILL_COMPLETE] is in the last response."""
-        self._sessions[session_id] = strip_tool_messages(messages)
+        """Store full message history. Clear active skill if [SKILL_COMPLETE] is in the last response."""
+        self._sessions[session_id] = list(messages)
         if session_id not in self._active_skills:
             return
-        last = self._sessions[session_id][-1] if self._sessions[session_id] else None
+        last = next((m for m in reversed(messages) if isinstance(m, ModelResponse)), None)
         if isinstance(last, ModelResponse) and any(
             "[SKILL_COMPLETE]" in str(p.content) for p in last.parts if isinstance(p, (TextPart, ThinkingPart))
         ):
@@ -244,9 +288,10 @@ async def main() -> None:
             result = await agent.run(
                 user_prompt=user_input,
                 message_history=(
-                    history[-MAX_HISTORY_MESSAGES:] if history and len(history) > MAX_HISTORY_MESSAGES else history
+                    history[-(MAX_HISTORY_TURNS * 2) :] if history and len(history) > MAX_HISTORY_TURNS * 2 else history
                 ),
             )
+            # CLI scratch loop — agent API uses trim_history instead
             history = strip_tool_messages(result.all_messages())
             if hasattr(result, "usage"):
                 logger.info("Token usage: %s", result.usage())
