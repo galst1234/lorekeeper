@@ -52,5 +52,8 @@ class Settings(BaseSettings):
     open_observe_api_key: str = ""
     enable_tracing: bool = False
 
+    # Sentry
+    sentry_dsn: str = ""
+
 
 settings = Settings()  # type: ignore[call-arg]

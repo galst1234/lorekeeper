@@ -53,7 +53,9 @@ _token_counter = _meter.create_counter(
     description="LLM tokens consumed",
 )
 
+
 app = FastAPI(title="LoreKeeper API")
+
 
 app.add_middleware(
     CORSMiddleware,  # type: ignore[arg-type]

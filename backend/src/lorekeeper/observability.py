@@ -1,5 +1,6 @@
 import logging
 
+import sentry_sdk
 from opentelemetry import metrics, trace
 from opentelemetry._logs import set_logger_provider  # noqa: PLC2701
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter  # noqa: PLC2701
@@ -18,6 +19,15 @@ from lorekeeper.config import settings
 
 def setup_observability(service_name: str) -> tuple[trace.Tracer, metrics.Meter]:
     logging.basicConfig()  # idempotent; ensures stdout logging for services that don't call it
+
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        send_default_pii=True,
+        enable_logs=True,
+        traces_sample_rate=1.0,
+        server_name=service_name,
+    )
+
     if not settings.enable_tracing:
         return trace.get_tracer(service_name), metrics.get_meter(service_name)
 
