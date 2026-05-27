@@ -20,6 +20,9 @@ from lorekeeper.config import settings
 def setup_observability(service_name: str) -> tuple[trace.Tracer, metrics.Meter]:
     logging.basicConfig()  # idempotent; ensures stdout logging for services that don't call it
 
+    if not settings.enable_tracing:
+        return trace.get_tracer(service_name), metrics.get_meter(service_name)
+
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
         send_default_pii=True,
@@ -28,9 +31,6 @@ def setup_observability(service_name: str) -> tuple[trace.Tracer, metrics.Meter]
         stream_gen_ai_spans=True,
         server_name=service_name,
     )
-
-    if not settings.enable_tracing:
-        return trace.get_tracer(service_name), metrics.get_meter(service_name)
 
     resource = Resource({SERVICE_NAME: service_name})
     auth_header = {"Authorization": f"Basic {settings.open_observe_api_key}"}
