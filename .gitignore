@@ -8,3 +8,4 @@ backend/obsidian_portal/.op_token.json
 **/__pycache__
 frontend/dist
 **/last_fetched.json
+**/.op_token.json
