@@ -14,3 +14,11 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+
+      - id: update-sentry-release
+        name: Update SENTRY_RELEASE in .env
+        entry: bash -c 'echo "SENTRY_RELEASE=$(git rev-parse HEAD)" > .env'
+        language: system
+        stages: [post-commit]
+        pass_filenames: false
+        always_run: true

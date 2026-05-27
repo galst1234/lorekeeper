@@ -6,7 +6,10 @@ services:
     <<: *restart
     build: ./backend
     command: python -m lorekeeper.qdrant_mcp_extended
-    env_file: ./backend/.env
+    env_file:
+      - ./backend/.env
+      - path: .env
+        required: false
     environment:
       ENABLE_TRACING: "true"
     volumes:
@@ -16,7 +19,10 @@ services:
     <<: *restart
     build: ./backend
     command: python -m lorekeeper.obsidian_portal.mcp_server
-    env_file: ./backend/.env
+    env_file:
+      - ./backend/.env
+      - path: .env
+        required: false
     environment:
       ENABLE_TRACING: "true"
 
@@ -24,7 +30,10 @@ services:
     <<: *restart
     build: ./backend
     command: uvicorn lorekeeper.api:app --host 0.0.0.0 --port 8001
-    env_file: ./backend/.env
+    env_file:
+      - ./backend/.env
+      - path: .env
+        required: false
     environment:
       QDRANT_MCP_URL: http://qdrant-mcp:8000/mcp
       OBSIDIAN_MCP_URL: http://obsidian-mcp:8080/mcp
@@ -48,6 +57,8 @@ services:
       - "5173:80"
     env_file:
       - ./frontend/.env
+      - path: .env
+        required: false
     depends_on: [api]
 
 volumes:
