@@ -17,11 +17,60 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from lorekeeper.config import settings
 
 
-def setup_observability(service_name: str) -> tuple[trace.Tracer, metrics.Meter]:
+class _DualCounter:
+    def __init__(self, name: str, inner: metrics.Counter) -> None:
+        self._name = name
+        self._inner = inner
+
+    def add(self, value: int | float, attributes: dict | None = None) -> None:
+        self._inner.add(value, attributes or {})
+        sentry_sdk.metrics.count(self._name, value, attributes=attributes or {})
+
+
+class _DualUpDownCounter:
+    def __init__(self, name: str, inner: metrics.UpDownCounter) -> None:
+        self._name = name
+        self._inner = inner
+        self._totals: dict[tuple, int | float] = {}
+
+    def add(self, value: int | float, attributes: dict | None = None) -> None:
+        attrs = attributes or {}
+        self._inner.add(value, attrs)
+        key = tuple(sorted(attrs.items()))
+        self._totals[key] = self._totals.get(key, 0) + value
+        sentry_sdk.metrics.gauge(self._name, self._totals[key], attributes=attrs)
+
+
+class _DualHistogram:
+    def __init__(self, name: str, inner: metrics.Histogram) -> None:
+        self._name = name
+        self._inner = inner
+
+    def record(self, value: int | float, attributes: dict | None = None) -> None:
+        self._inner.record(value, attributes or {})
+        sentry_sdk.metrics.distribution(self._name, value, attributes=attributes or {})
+
+
+class DualMeter:
+    def __init__(self, inner: metrics.Meter) -> None:
+        self._inner = inner
+
+    def create_counter(self, name: str, *, description: str = "", unit: str = "") -> _DualCounter:
+        return _DualCounter(name, self._inner.create_counter(name, description=description, unit=unit))
+
+    def create_up_down_counter(self, name: str, *, description: str = "", unit: str = "") -> _DualUpDownCounter:
+        return _DualUpDownCounter(name, self._inner.create_up_down_counter(name, description=description, unit=unit))
+
+    def create_histogram(self, name: str, *, description: str = "", unit: str = "") -> _DualHistogram:
+        return _DualHistogram(name, self._inner.create_histogram(name, description=description, unit=unit))
+
+
+def setup_observability(service_name: str) -> tuple[trace.Tracer, DualMeter]:
     logging.basicConfig()  # idempotent; ensures stdout logging for services that don't call it
 
     if not settings.enable_tracing:
-        return trace.get_tracer(service_name), metrics.get_meter(service_name)
+        # no exporters initialized — all metric and trace calls are no-ops
+        return trace.get_tracer(service_name), DualMeter(metrics.get_meter(service_name))
 
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
@@ -72,4 +121,4 @@ def setup_observability(service_name: str) -> tuple[trace.Tracer, metrics.Meter]
     root_logger = logging.getLogger()
     root_logger.addHandler(LoggingHandler(level=logging.DEBUG, logger_provider=logger_provider))
 
-    return trace.get_tracer(service_name), metrics.get_meter(service_name)
+    return trace.get_tracer(service_name), DualMeter(metrics.get_meter(service_name))
