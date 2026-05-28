@@ -305,7 +305,7 @@ async def _run_agent_task(  # noqa: PLR0913
         await _collect_agent_events(queue, _ctx, evts, state)
 
     stream_ref: object = None
-    try:
+    try:  # noqa: PLW0717
         async with agent_instance.chat_stream(
             session_id,
             message,
@@ -317,7 +317,7 @@ async def _run_agent_task(  # noqa: PLR0913
             async for delta in stream.stream_text(delta=True):
                 if delta:
                     await queue.put(json.dumps({"type": "text_delta", "delta": delta}))
-        try:
+        try:  # noqa: PLW0717
             usage = stream_ref.usage()  # type: ignore[union-attr]
             model_label = getattr(run_model, "model_name", str(run_model))
             if getattr(usage, "request_tokens", None):
@@ -356,7 +356,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
             ),
         )
         error_occurred = False
-        try:
+        try:  # noqa: PLW0717
             while True:
                 item = await queue.get()
                 if item is None:
