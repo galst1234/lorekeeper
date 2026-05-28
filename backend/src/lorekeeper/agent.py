@@ -268,7 +268,6 @@ def create_agent() -> Agent:
         model=model,
         name="LoreKeeper",
         toolsets=[qdrant_mcp, obsidian_portal_mcp],
-        system_prompt=SYSTEM_PROMPT,
     )
 
 
@@ -290,6 +289,7 @@ async def main() -> None:
                 message_history=(
                     history[-(MAX_HISTORY_TURNS * 2) :] if history and len(history) > MAX_HISTORY_TURNS * 2 else history
                 ),
+                instructions=SYSTEM_PROMPT,
             )
             # CLI scratch loop — agent API uses trim_history instead
             history = strip_tool_messages(result.all_messages())
