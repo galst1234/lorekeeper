@@ -124,9 +124,9 @@ def _parse_items(inner: str, phase_name: str, quest_type: str | None) -> list[Qu
             Quest(
                 title=m.group(2),
                 content=m.group(3),
-                status=m.group(1),  # type: ignore[arg-type]
+                status=m.group(1),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 phase=phase_name,
-                quest_type=quest_type,  # type: ignore[arg-type]
+                quest_type=quest_type,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             ),
         )
     return quests

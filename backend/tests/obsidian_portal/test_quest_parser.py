@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from lorekeeper.obsidian_portal.models import Quest
+from lorekeeper.obsidian_portal.models import Quest, QuestStatus, QuestType
 from lorekeeper.obsidian_portal.quest_parser import (
     ParsedBody,
     PhaseBlock,
@@ -30,11 +30,11 @@ _SLIDESHOW = "[slideshow]slide1[end-slideshow]"
 def _make_quest(
     title: str = "Test Quest",
     content: str = "Some content",
-    status: str = "open",
+    status: QuestStatus = "open",
     phase: str = "Act I",
-    quest_type: str | None = "Main Quest",
+    quest_type: QuestType | None = "Main Quest",
 ) -> Quest:
-    return Quest(title=title, content=content, status=status, phase=phase, quest_type=quest_type)  # type: ignore[arg-type]
+    return Quest(title=title, content=content, status=status, phase=phase, quest_type=quest_type)
 
 
 def _item_str(status: str, title: str, content: str) -> str:

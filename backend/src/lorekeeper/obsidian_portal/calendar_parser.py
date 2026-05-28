@@ -488,4 +488,4 @@ def add_entry(page: CalendarPage, date: CalendarDate, title: str) -> None:
     if isinstance(section, SpecialDayBlock):
         section.raw_accordion_item = _insert_link_in_special_day(section.raw_accordion_item, link)
     else:
-        section.raw_accordion_item = _insert_link_in_month(section.raw_accordion_item, date.day, link)  # type: ignore[arg-type]
+        section.raw_accordion_item = _insert_link_in_month(section.raw_accordion_item, date.day, link)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]

@@ -77,7 +77,6 @@ def setup_observability(service_name: str) -> tuple[trace.Tracer, DualMeter]:
         send_default_pii=True,
         enable_logs=True,
         traces_sample_rate=1.0,
-        stream_gen_ai_spans=True,
         server_name=service_name,
     )
 

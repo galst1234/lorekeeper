@@ -56,4 +56,4 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""
 
 
-settings = Settings()  # type: ignore[call-arg]
+settings = Settings()  # type: ignore[call-arg]  # ty: ignore[missing-argument]
