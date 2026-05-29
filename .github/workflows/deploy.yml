@@ -19,22 +19,6 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Build frontend
-        working-directory: frontend
-        run: npm ci && npm run build
-        env:
-          SENTRY_RELEASE: ${{ github.event.workflow_run.head_sha || github.sha }}
-          SENTRY_URL: ${{ secrets.SENTRY_URL }}
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_FRONTEND_PROJECT }}
-
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -50,6 +34,13 @@ jobs:
           tags: |
             ghcr.io/galst1234/lorekeeper-frontend:latest
             ghcr.io/galst1234/lorekeeper-frontend:${{ github.event.workflow_run.head_sha || github.sha }}
+          build-args: |
+            SENTRY_RELEASE=${{ github.event.workflow_run.head_sha || github.sha }}
+          secrets: |
+            SENTRY_URL=${{ secrets.SENTRY_URL }}
+            SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
+            SENTRY_ORG=${{ secrets.SENTRY_ORG }}
+            SENTRY_PROJECT=${{ secrets.SENTRY_FRONTEND_PROJECT }}
           cache-from: type=registry,ref=ghcr.io/galst1234/lorekeeper-frontend:buildcache
           cache-to: type=registry,ref=ghcr.io/galst1234/lorekeeper-frontend:buildcache,mode=max
 
