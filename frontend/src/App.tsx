@@ -279,6 +279,8 @@ export default function App() {
   const [slashIndex, setSlashIndex] = useState(0)
   const slashMenuRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const messagesRef = useRef<HTMLDivElement>(null)
+  const userScrolledRef = useRef(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -326,6 +328,20 @@ export default function App() {
   }, [isFetching])
 
   useEffect(() => {
+    const el = messagesRef.current
+    if (!el) return
+    function onScroll() {
+      const el = messagesRef.current
+      if (!el) return
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+      userScrolledRef.current = !atBottom
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
+    if (userScrolledRef.current) return
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
@@ -368,6 +384,7 @@ export default function App() {
 
     setInput('')
     setIsLoading(true)
+    userScrolledRef.current = false
 
     setMessages(prev => [
       ...prev,
@@ -693,7 +710,7 @@ export default function App() {
         </button>
       </header>
 
-      <div className="messages">
+      <div className="messages" ref={messagesRef}>
         {messages.length === 0 && (
           <div className="empty-state">Ask about your campaign lore...</div>
         )}
