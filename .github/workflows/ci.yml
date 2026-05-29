@@ -1,58 +1,62 @@
-name: Backend
+name: CI
 
 on:
   push:
     branches: [main]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend.yml'
-      - '.github/actions/**'
   pull_request:
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend.yml'
-      - '.github/actions/**'
-  workflow_dispatch:
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: step-security/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+              - '.github/actions/**'
+
   ruff:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Run Ruff
         uses: ./.github/actions/ruff-check
         with:
           project-dir: backend
 
   ty:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Setup Python
         uses: ./.github/actions/setup-python
         with:
           project-dir: backend
-
       - name: Run Ty
         uses: ./.github/actions/ty-check
         with:
           project-dir: backend
 
   pytest:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Setup Python
         uses: ./.github/actions/setup-python
         with:
           project-dir: backend
-
       - name: Run Pytest
         uses: ./.github/actions/pytest-check
         with:
