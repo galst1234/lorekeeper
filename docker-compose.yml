@@ -6,6 +6,7 @@ services:
     <<: *restart
     image: ghcr.io/galst1234/lorekeeper-backend:latest
     command: python -m lorekeeper.qdrant_mcp_extended
+    env_file: stack.env
     environment:
       ENABLE_TRACING: "true"
     volumes:
@@ -15,6 +16,7 @@ services:
     <<: *restart
     image: ghcr.io/galst1234/lorekeeper-backend:latest
     command: python -m lorekeeper.obsidian_portal.mcp_server
+    env_file: stack.env
     environment:
       ENABLE_TRACING: "true"
 
@@ -22,6 +24,7 @@ services:
     <<: *restart
     image: ghcr.io/galst1234/lorekeeper-backend:latest
     command: uvicorn lorekeeper.api:app --host 0.0.0.0 --port 8001
+    env_file: stack.env
     environment:
       QDRANT_MCP_URL: http://qdrant-mcp:8000/mcp
       OBSIDIAN_MCP_URL: http://obsidian-mcp:8080/mcp
@@ -36,6 +39,7 @@ services:
     <<: *restart
     image: ghcr.io/galst1234/lorekeeper-cron:latest
     init: true
+    env_file: stack.env
     depends_on: [api]
 
   frontend:
@@ -43,6 +47,7 @@ services:
     image: ghcr.io/galst1234/lorekeeper-frontend:latest
     ports:
       - "5173:80"
+    env_file: stack.env
     depends_on: [api]
 
 volumes:
