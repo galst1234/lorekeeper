@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     campaign_id: str
     quest_log_page_id: str
     calendar_page_id: str
+    obsidian_portal_oauth_token: str = ""
+    obsidian_portal_oauth_token_secret: str = ""
 
     # Qdrant
     qdrant_url: str
