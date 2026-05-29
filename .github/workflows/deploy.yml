@@ -5,15 +5,16 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build-frontend:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -25,7 +26,7 @@ jobs:
         working-directory: frontend
         run: npm ci && npm run build
         env:
-          SENTRY_RELEASE: ${{ github.event.workflow_run.head_sha }}
+          SENTRY_RELEASE: ${{ github.event.workflow_run.head_sha || github.sha }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_FRONTEND_PROJECT }}
@@ -44,19 +45,17 @@ jobs:
           push: true
           tags: |
             ghcr.io/galst1234/lorekeeper-frontend:latest
-            ghcr.io/galst1234/lorekeeper-frontend:${{ github.event.workflow_run.head_sha }}
-          build-args: |
-            SENTRY_RELEASE=${{ github.event.workflow_run.head_sha }}
+            ghcr.io/galst1234/lorekeeper-frontend:${{ github.event.workflow_run.head_sha || github.sha }}
           cache-from: type=registry,ref=ghcr.io/galst1234/lorekeeper-frontend:buildcache
           cache-to: type=registry,ref=ghcr.io/galst1234/lorekeeper-frontend:buildcache,mode=max
 
   build-backend:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: docker/login-action@v3
         with:
@@ -72,19 +71,19 @@ jobs:
           push: true
           tags: |
             ghcr.io/galst1234/lorekeeper-backend:latest
-            ghcr.io/galst1234/lorekeeper-backend:${{ github.event.workflow_run.head_sha }}
+            ghcr.io/galst1234/lorekeeper-backend:${{ github.event.workflow_run.head_sha || github.sha }}
           build-args: |
-            SENTRY_RELEASE=${{ github.event.workflow_run.head_sha }}
+            SENTRY_RELEASE=${{ github.event.workflow_run.head_sha || github.sha }}
           cache-from: type=registry,ref=ghcr.io/galst1234/lorekeeper-backend:buildcache
           cache-to: type=registry,ref=ghcr.io/galst1234/lorekeeper-backend:buildcache,mode=max
 
   build-cron:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: docker/login-action@v3
         with:
@@ -100,7 +99,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/galst1234/lorekeeper-cron:latest
-            ghcr.io/galst1234/lorekeeper-cron:${{ github.event.workflow_run.head_sha }}
+            ghcr.io/galst1234/lorekeeper-cron:${{ github.event.workflow_run.head_sha || github.sha }}
           cache-from: type=registry,ref=ghcr.io/galst1234/lorekeeper-cron:buildcache
           cache-to: type=registry,ref=ghcr.io/galst1234/lorekeeper-cron:buildcache,mode=max
 
