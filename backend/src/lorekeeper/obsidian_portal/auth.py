@@ -39,8 +39,8 @@ def get_authenticated_session() -> OAuth1Session:
 
 
 def _load_token() -> AccessToken | None:
-    env_token = os.environ.get("OP_OAUTH_TOKEN")
-    env_secret = os.environ.get("OP_OAUTH_TOKEN_SECRET")
+    env_token = settings.obsidian_portal_oauth_token
+    env_secret = settings.obsidian_portal_oauth_token_secret
     if env_token and env_secret:
         return AccessToken.model_validate({"oauth_token": env_token, "oauth_token_secret": env_secret})
     if os.path.exists(TOKEN_PATH):
