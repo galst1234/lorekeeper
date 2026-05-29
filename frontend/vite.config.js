@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [
     react(),
     sentryVitePlugin({
+      url: process.env.SENTRY_URL,
       org: process.env.SENTRY_ORG,
       project: process.env.SENTRY_PROJECT,
       authToken: process.env.SENTRY_AUTH_TOKEN,

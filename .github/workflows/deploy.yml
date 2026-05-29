@@ -30,6 +30,7 @@ jobs:
         run: npm ci && npm run build
         env:
           SENTRY_RELEASE: ${{ github.event.workflow_run.head_sha || github.sha }}
+          SENTRY_URL: ${{ secrets.SENTRY_URL }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_FRONTEND_PROJECT }}
