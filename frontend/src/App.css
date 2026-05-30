@@ -1,4 +1,6 @@
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -7,7 +9,7 @@
 body {
   background: #0d0d0f;
   color: #e8e0d0;
-  font-family: 'Georgia', serif;
+  font-family: "Georgia", serif;
   height: 100dvh;
   overflow: hidden;
 }
@@ -58,7 +60,7 @@ body {
   color: #e8e0d0;
   padding: 6px 10px;
   border-radius: 8px;
-  font-family: 'Georgia', serif;
+  font-family: "Georgia", serif;
   font-size: 0.8rem;
   cursor: pointer;
   display: flex;
@@ -67,7 +69,9 @@ body {
   white-space: nowrap;
   justify-content: center;
   width: 100%;
-  transition: border-color 0.2s, background-color 0.2s;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
 }
 
 .model-trigger:hover,
@@ -149,7 +153,7 @@ body {
   color: #e8e0d0;
   padding: 6px 10px;
   border-radius: 8px;
-  font-family: 'Georgia', serif;
+  font-family: "Georgia", serif;
   font-size: 0.8rem;
   cursor: pointer;
   display: flex;
@@ -231,7 +235,9 @@ body {
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.85rem;
-  transition: border-color 0.2s, color 0.2s;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
 }
 
 .clear-btn:hover:not(:disabled) {
@@ -252,7 +258,9 @@ body {
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.85rem;
-  transition: border-color 0.2s, color 0.2s;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
 }
 
 .refresh-btn:hover:not(:disabled) {
@@ -321,7 +329,9 @@ body {
   cursor: pointer;
   font-size: 0.85rem;
   font-family: inherit;
-  transition: border-color 0.2s, color 0.2s;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
 }
 
 .confirm-cancel:hover {
@@ -410,8 +420,13 @@ body {
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* Input area */
@@ -492,9 +507,15 @@ body {
   margin: 0.8em 0 0.3em;
   line-height: 1.3;
 }
-.message.assistant .bubble h1 { font-size: 1.25em; }
-.message.assistant .bubble h2 { font-size: 1.1em; }
-.message.assistant .bubble h3 { font-size: 1em; }
+.message.assistant .bubble h1 {
+  font-size: 1.25em;
+}
+.message.assistant .bubble h2 {
+  font-size: 1.1em;
+}
+.message.assistant .bubble h3 {
+  font-size: 1em;
+}
 .message.assistant .bubble ul,
 .message.assistant .bubble ol {
   margin: 0.4em 0 0.6em;
@@ -504,7 +525,7 @@ body {
   margin-bottom: 0.2em;
 }
 .message.assistant .bubble code {
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   font-size: 0.88em;
   background: #0e0a1a;
   border: 1px solid #2a2040;
@@ -580,9 +601,11 @@ body {
   color: #8a80a8;
   cursor: pointer;
   text-align: left;
-  font-family: 'Georgia', serif;
+  font-family: "Georgia", serif;
   font-size: 0.82rem;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .op-block-header:hover {
@@ -632,7 +655,7 @@ body {
 }
 
 .op-block-pre {
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   font-size: 0.78rem;
   color: #9090b8;
   white-space: pre-wrap;
@@ -745,7 +768,7 @@ body {
 .slash-menu-item-name {
   font-size: 0.9rem;
   color: #e8e0d0;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
 }
 
 .slash-menu-item-desc {
@@ -764,14 +787,14 @@ body {
   letter-spacing: 0.04em;
 }
 
-.stop-btn {
-  background: #5a1010 !important;
-  border-color: #7a2020 !important;
-  color: #f0d0d0 !important;
+.input-area .stop-btn {
+  background: #5a1010;
+  border-color: #7a2020;
+  color: #f0d0d0;
 }
 
-.stop-btn:hover {
-  background: #7a2020 !important;
+.input-area .stop-btn:hover {
+  background: #7a2020;
 }
 
 .stopped-indicator {

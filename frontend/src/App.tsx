@@ -1,72 +1,74 @@
-import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
-import type { KeyboardEvent, ChangeEvent, MouseEvent } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import type { ChangeEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ModelOption {
-  id: string
-  name: string
-  description: string
-  color: string
-  default_reasoning: string
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  default_reasoning: string;
 }
 
 interface ReasoningOption {
-  id: string
-  name: string
-  description: string
+  id: string;
+  name: string;
+  description: string;
 }
 
-type ThinkingBlock = { kind: 'thinking'; id: number; content: string; done: boolean }
-type ToolCallBlock = { kind: 'tool_call'; id: number; tool_name: string; args: string; done: boolean }
-type ToolResponseBlock = { kind: 'tool_response'; tool_name: string; call_index: number; content: string }
-type TextBlock = { kind: 'text'; content: string }
-type Block = ThinkingBlock | ToolCallBlock | ToolResponseBlock | TextBlock
+type ThinkingBlock = { kind: "thinking"; id: number; content: string; done: boolean };
+type ToolCallBlock = { kind: "tool_call"; id: number; tool_name: string; args: string; done: boolean };
+type ToolResponseBlock = { kind: "tool_response"; tool_name: string; call_index: number; content: string };
+type TextBlock = { kind: "text"; content: string };
+type Block = ThinkingBlock | ToolCallBlock | ToolResponseBlock | TextBlock;
 
 interface Message {
-  role: 'user' | 'assistant'
-  content: string        // user messages and error text
-  blocks?: Block[]       // assistant messages only
-  streaming?: boolean
-  error?: boolean
-  stopped?: boolean
+  id: string;
+  role: "user" | "assistant";
+  content: string; // user messages and error text
+  blocks?: Block[]; // assistant messages only
+  streaming?: boolean;
+  error?: boolean;
+  stopped?: boolean;
 }
 
 interface SkillOption {
-  id: string
-  title: string
-  description: string
+  id: string;
+  title: string;
+  description: string;
 }
 
-const SHOW_SKILL_HINT = true
+const SHOW_SKILL_HINT = true;
 
-const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g
+const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g;
 
 function linkify(text: string): ReactNode[] {
-  const parts = text.split(URL_REGEX)
-  return parts.map((part, i) =>
-    URL_REGEX.test(part)
-      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a>
-      : part
-  )
+  const parts = text.split(URL_REGEX);
+  return parts.map((part) =>
+    URL_REGEX.test(part) ? (
+      <a key={part} href={part} target="_blank" rel="noopener noreferrer">
+        {part}
+      </a>
+    ) : (
+      part
+    )
+  );
 }
 
 function ThinkingBlock({ block }: { block: ThinkingBlock }) {
-  const [expanded, setExpanded] = useState(!block.done)
+  const [expanded, setExpanded] = useState(!block.done);
 
   useEffect(() => {
-    if (block.done) setExpanded(false)
-  }, [block.done])
+    if (block.done) setExpanded(false);
+  }, [block.done]);
 
   return (
     <div className="op-block thinking-block">
-      <button className="op-block-header" onClick={() => setExpanded(e => !e)}>
+      <button type="button" className="op-block-header" onClick={() => setExpanded((e) => !e)}>
         <span className="op-block-icon">💭</span>
-        <span className="op-block-title">
-          {block.done ? 'Thought for a moment' : 'Thinking...'}
-        </span>
-        <span className={`op-block-caret${expanded ? ' open' : ''}`}>▸</span>
+        <span className="op-block-title">{block.done ? "Thought for a moment" : "Thinking..."}</span>
+        <span className={`op-block-caret${expanded ? " open" : ""}`}>▸</span>
       </button>
       {expanded && (
         <div className="op-block-body">
@@ -77,25 +79,31 @@ function ThinkingBlock({ block }: { block: ThinkingBlock }) {
         </div>
       )}
     </div>
-  )
+  );
 }
 
-function ToolCallBlock({ call, response, stopped }: { call: ToolCallBlock; response: ToolResponseBlock | undefined; stopped?: boolean }) {
-  const [expanded, setExpanded] = useState(true)
-  const shouldCollapse = call.done && (response !== undefined || stopped)
+function ToolCallBlock({
+  call,
+  response,
+  stopped,
+}: {
+  call: ToolCallBlock;
+  response: ToolResponseBlock | undefined;
+  stopped?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const shouldCollapse = call.done && (response !== undefined || stopped);
 
   useEffect(() => {
-    if (shouldCollapse) setExpanded(false)
-  }, [shouldCollapse])
+    if (shouldCollapse) setExpanded(false);
+  }, [shouldCollapse]);
 
   return (
     <div className="op-block tool-block">
-      <button className="op-block-header" onClick={() => setExpanded(e => !e)}>
+      <button type="button" className="op-block-header" onClick={() => setExpanded((e) => !e)}>
         <span className="op-block-icon">🔧</span>
-        <span className="op-block-title">
-          {call.done ? `${call.tool_name} ✓` : `Calling ${call.tool_name}...`}
-        </span>
-        <span className={`op-block-caret${expanded ? ' open' : ''}`}>▸</span>
+        <span className="op-block-title">{call.done ? `${call.tool_name} ✓` : `Calling ${call.tool_name}...`}</span>
+        <span className={`op-block-caret${expanded ? " open" : ""}`}>▸</span>
       </button>
       {expanded && (
         <div className="op-block-body">
@@ -113,17 +121,17 @@ function ToolCallBlock({ call, response, stopped }: { call: ToolCallBlock; respo
         </div>
       )}
     </div>
-  )
+  );
 }
 
 function OrphanedToolResponse({ block }: { block: ToolResponseBlock }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(false);
   return (
     <div className="op-block tool-block">
-      <button className="op-block-header" onClick={() => setExpanded(e => !e)}>
+      <button type="button" className="op-block-header" onClick={() => setExpanded((e) => !e)}>
         <span className="op-block-icon">🔧</span>
         <span className="op-block-title">{block.tool_name} (response)</span>
-        <span className={`op-block-caret${expanded ? ' open' : ''}`}>▸</span>
+        <span className={`op-block-caret${expanded ? " open" : ""}`}>▸</span>
       </button>
       {expanded && (
         <div className="op-block-body">
@@ -131,79 +139,88 @@ function OrphanedToolResponse({ block }: { block: ToolResponseBlock }) {
         </div>
       )}
     </div>
-  )
+  );
 }
 
 function isActionBlockDone(block: Block, allBlocks: Block[], stopped?: boolean): boolean {
-  if (block.kind === 'tool_response') return true
-  if (block.kind === 'thinking') return block.done
-  if (block.kind === 'tool_call') {
-    if (!block.done) return false
-    return stopped === true || allBlocks.some(b => b.kind === 'tool_response' && b.call_index === block.id)
+  if (block.kind === "tool_response") return true;
+  if (block.kind === "thinking") return block.done;
+  if (block.kind === "tool_call") {
+    if (!block.done) return false;
+    return stopped === true || allBlocks.some((b) => b.kind === "tool_response" && b.call_index === block.id);
   }
-  return true
+  return true;
 }
 
 function ActionsWrapper({ blocks, streaming, stopped }: { blocks: Block[]; streaming: boolean; stopped?: boolean }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(false);
 
-  const responseByCallIndex = new Map<number, ToolResponseBlock>()
+  const responseByCallIndex = new Map<number, ToolResponseBlock>();
   for (const b of blocks) {
-    if (b.kind === 'tool_response') responseByCallIndex.set(b.call_index, b)
+    if (b.kind === "tool_response") responseByCallIndex.set(b.call_index, b);
   }
 
   const actionCount = blocks.filter(
-    b => (b.kind === 'thinking' && !(b.done && !b.content)) || b.kind === 'tool_call'
-  ).length
-  if (actionCount === 0) return null
+    (b) => (b.kind === "thinking" && !(b.done && !b.content)) || b.kind === "tool_call"
+  ).length;
+  if (actionCount === 0) return null;
 
   return (
     <div className="op-block actions-summary">
-      <button className="op-block-header" onClick={() => setExpanded(e => !e)}>
+      <button type="button" className="op-block-header" onClick={() => setExpanded((e) => !e)}>
         <span className="op-block-icon">⚙️</span>
         <span className="op-block-title">
-          {`Performed ${actionCount} action${actionCount !== 1 ? 's' : ''}${streaming ? '…' : ''}`}
+          {`Performed ${actionCount} action${actionCount !== 1 ? "s" : ""}${streaming ? "…" : ""}`}
         </span>
-        <span className={`op-block-caret${expanded ? ' open' : ''}`}>▸</span>
+        <span className={`op-block-caret${expanded ? " open" : ""}`}>▸</span>
       </button>
       {expanded && (
         <div className="op-block-body actions-body">
-          {blocks.map(block => {
-            if (block.kind === 'thinking') {
-              if (block.done && !block.content) return null
-              return <ThinkingBlock key={`t-${block.id}`} block={block} />
+          {blocks.map((block) => {
+            if (block.kind === "thinking") {
+              if (block.done && !block.content) return null;
+              return <ThinkingBlock key={`t-${block.id}`} block={block} />;
             }
-            if (block.kind === 'tool_call') {
-              return <ToolCallBlock key={`c-${block.id}`} call={block} response={responseByCallIndex.get(block.id)} stopped={stopped} />
+            if (block.kind === "tool_call") {
+              return (
+                <ToolCallBlock
+                  key={`c-${block.id}`}
+                  call={block}
+                  response={responseByCallIndex.get(block.id)}
+                  stopped={stopped}
+                />
+              );
             }
-            if (block.kind === 'tool_response') {
-              const isPaired = block.call_index !== -1 && blocks.some(b => b.kind === 'tool_call' && b.id === block.call_index)
-              if (!isPaired) return <OrphanedToolResponse key={`tr-${block.call_index}-${block.tool_name}`} block={block} />
+            if (block.kind === "tool_response") {
+              const isPaired =
+                block.call_index !== -1 && blocks.some((b) => b.kind === "tool_call" && b.id === block.call_index);
+              if (!isPaired)
+                return <OrphanedToolResponse key={`tr-${block.call_index}-${block.tool_name}`} block={block} />;
             }
-            return null
+            return null;
           })}
         </div>
       )}
     </div>
-  )
+  );
 }
 
 function AssistantMessage({ msg }: { msg: Message }) {
   if (msg.error) {
-    return <div className="bubble">{msg.content}</div>
+    return <div className="bubble">{msg.content}</div>;
   }
 
-  const blocks = msg.blocks ?? []
-  const actionBlocks = blocks.filter(b => b.kind !== 'text')
-  const doneBlocks = actionBlocks.filter(b => isActionBlockDone(b, blocks, msg.stopped))
-  const activeBlock = actionBlocks.find(b => !isActionBlockDone(b, blocks, msg.stopped)) ?? null
-  const textBlocks = blocks.filter((b): b is TextBlock => b.kind === 'text')
-  const hasText = textBlocks.length > 0
+  const blocks = msg.blocks ?? [];
+  const actionBlocks = blocks.filter((b) => b.kind !== "text");
+  const doneBlocks = actionBlocks.filter((b) => isActionBlockDone(b, blocks, msg.stopped));
+  const activeBlock = actionBlocks.find((b) => !isActionBlockDone(b, blocks, msg.stopped)) ?? null;
+  const textBlocks = blocks.filter((b): b is TextBlock => b.kind === "text");
+  const hasText = textBlocks.length > 0;
 
   // Response map needed for the edge case: tool_call is done but response not yet arrived
-  const responseByCallIndex = new Map<number, ToolResponseBlock>()
+  const responseByCallIndex = new Map<number, ToolResponseBlock>();
   for (const b of blocks) {
-    if (b.kind === 'tool_response') responseByCallIndex.set(b.call_index, b)
+    if (b.kind === "tool_response") responseByCallIndex.set(b.call_index, b);
   }
 
   return (
@@ -211,18 +228,29 @@ function AssistantMessage({ msg }: { msg: Message }) {
       {doneBlocks.length > 0 && (
         <ActionsWrapper blocks={doneBlocks} streaming={msg.streaming ?? false} stopped={msg.stopped} />
       )}
-      {activeBlock && (
-        activeBlock.kind === 'thinking'
-          ? <ThinkingBlock key={`t-${activeBlock.id}`} block={activeBlock} />
-          : activeBlock.kind === 'tool_call'
-            ? <ToolCallBlock key={`c-${activeBlock.id}`} call={activeBlock} response={responseByCallIndex.get(activeBlock.id)} stopped={msg.stopped} />
-            : null
-      )}
+      {activeBlock &&
+        (activeBlock.kind === "thinking" ? (
+          <ThinkingBlock key={`t-${activeBlock.id}`} block={activeBlock} />
+        ) : activeBlock.kind === "tool_call" ? (
+          <ToolCallBlock
+            key={`c-${activeBlock.id}`}
+            call={activeBlock}
+            response={responseByCallIndex.get(activeBlock.id)}
+            stopped={msg.stopped}
+          />
+        ) : null)}
       {textBlocks.map((block, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: text blocks build incrementally via streaming deltas; adding stable IDs requires coordinated changes across the SSE handler
         <div key={`tx-${i}`} className="bubble">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}
+            components={{
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer">
+                  {children}
+                </a>
+              ),
+            }}
           >
             {block.content}
           </ReactMarkdown>
@@ -230,455 +258,467 @@ function AssistantMessage({ msg }: { msg: Message }) {
         </div>
       ))}
       {msg.streaming && !hasText && (
-        <div className="bubble"><span className="cursor">▋</span></div>
+        <div className="bubble">
+          <span className="cursor">▋</span>
+        </div>
       )}
-      {msg.stopped && (
-        <div className="stopped-indicator">— Response stopped.</div>
-      )}
+      {msg.stopped && <div className="stopped-indicator">— Response stopped.</div>}
     </>
-  )
+  );
 }
 
 function getOrCreateSessionId() {
-  let id = localStorage.getItem('lorekeeper_session_id')
+  let id = localStorage.getItem("lorekeeper_session_id");
   if (!id) {
-    id = crypto.randomUUID()
-    localStorage.setItem('lorekeeper_session_id', id)
+    id = crypto.randomUUID();
+    localStorage.setItem("lorekeeper_session_id", id);
   }
-  return id
+  return id;
 }
 
 function getOrCreateModel() {
-  return localStorage.getItem('lorekeeper_model') ?? 'gpt-5-mini-2025-08-07'
+  return localStorage.getItem("lorekeeper_model") ?? "gpt-5-mini-2025-08-07";
 }
 
 function getOrCreateReasoningEffort() {
-  return localStorage.getItem('lorekeeper_reasoning_effort') ?? 'medium'
+  return localStorage.getItem("lorekeeper_reasoning_effort") ?? "medium";
 }
 
 export default function App() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [sessionId] = useState(getOrCreateSessionId)
-  const [lastFetched, setLastFetched] = useState<string | null>(null)
-  const [isFetching, setIsFetching] = useState(false)
-  const [nextAllowedAt, setNextAllowedAt] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [models, setModels] = useState<ModelOption[]>([])
-  const [model, setModel] = useState<string>(getOrCreateModel)
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false)
-  const modelDropdownRef = useRef<HTMLDivElement>(null)
-  const [reasoningLevels, setReasoningLevels] = useState<ReasoningOption[]>([])
-  const [reasoningEffort, setReasoningEffort] = useState<string>(getOrCreateReasoningEffort)
-  const [reasoningDropdownOpen, setReasoningDropdownOpen] = useState(false)
-  const reasoningDropdownRef = useRef<HTMLDivElement>(null)
-  const [skills, setSkills] = useState<SkillOption[]>([])
-  const [slashMenuOpen, setSlashMenuOpen] = useState(false)
-  const [slashFilter, setSlashFilter] = useState('')
-  const [slashIndex, setSlashIndex] = useState(0)
-  const slashMenuRef = useRef<HTMLDivElement>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const messagesRef = useRef<HTMLDivElement>(null)
-  const userScrolledRef = useRef(false)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [sessionId] = useState(getOrCreateSessionId);
+  const [lastFetched, setLastFetched] = useState<string | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
+  const [nextAllowedAt, setNextAllowedAt] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [model, setModel] = useState<string>(getOrCreateModel);
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
+  const [reasoningLevels, setReasoningLevels] = useState<ReasoningOption[]>([]);
+  const [reasoningEffort, setReasoningEffort] = useState<string>(getOrCreateReasoningEffort);
+  const [reasoningDropdownOpen, setReasoningDropdownOpen] = useState(false);
+  const reasoningDropdownRef = useRef<HTMLDivElement>(null);
+  const [skills, setSkills] = useState<SkillOption[]>([]);
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false);
+  const [slashFilter, setSlashFilter] = useState("");
+  const [slashIndex, setSlashIndex] = useState(0);
+  const slashMenuRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const userScrolledRef = useRef(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const filteredSkills = skills.filter(s => s.id.startsWith(slashFilter))
+  const filteredSkills = skills.filter((s) => s.id.startsWith(slashFilter));
 
-  async function loadFetchStatus() {
-    const d = await fetch('/api/fetch-status').then(r => r.json())
-    setIsFetching(d.running)
-    setNextAllowedAt(d.next_allowed_at ?? null)
-  }
-
-  useEffect(() => {
-    fetch('/api/last-fetched')
-      .then(r => r.json())
-      .then(d => setLastFetched(d.fetched_at))
-      .catch(() => {})
-    loadFetchStatus().catch(() => {})
-    fetch('/api/models')
-      .then(r => r.json())
-      .then(d => setModels(d))
-      .catch(() => {})
-    fetch('/api/reasoning-levels')
-      .then(r => r.json())
-      .then(d => setReasoningLevels(d))
-      .catch(() => {})
-    fetch('/api/skills')
-      .then(r => r.json())
-      .then(d => setSkills(d))
-      .catch(() => {})
-  }, [])
+  const loadFetchStatus = useCallback(async () => {
+    const d = await fetch("/api/fetch-status").then((r) => r.json());
+    setIsFetching(d.running);
+    setNextAllowedAt(d.next_allowed_at ?? null);
+  }, []);
 
   useEffect(() => {
-    if (!isFetching) return
+    fetch("/api/last-fetched")
+      .then((r) => r.json())
+      .then((d) => setLastFetched(d.fetched_at))
+      .catch(() => {});
+    loadFetchStatus().catch(() => {});
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((d) => setModels(d))
+      .catch(() => {});
+    fetch("/api/reasoning-levels")
+      .then((r) => r.json())
+      .then((d) => setReasoningLevels(d))
+      .catch(() => {});
+    fetch("/api/skills")
+      .then((r) => r.json())
+      .then((d) => setSkills(d))
+      .catch(() => {});
+  }, [loadFetchStatus]);
+
+  useEffect(() => {
+    if (!isFetching) return;
     const id = setInterval(() => {
-      loadFetchStatus().then(() => {
-        if (!isFetching) {
-          fetch('/api/last-fetched')
-            .then(r => r.json())
-            .then(d => setLastFetched(d.fetched_at))
-            .catch(() => {})
-        }
-      }).catch(() => {})
-    }, 5000)
-    return () => clearInterval(id)
-  }, [isFetching])
+      loadFetchStatus()
+        .then(() => {
+          if (!isFetching) {
+            fetch("/api/last-fetched")
+              .then((r) => r.json())
+              .then((d) => setLastFetched(d.fetched_at))
+              .catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }, 5000);
+    return () => clearInterval(id);
+  }, [isFetching, loadFetchStatus]);
 
   useEffect(() => {
-    const el = messagesRef.current
-    if (!el) return
+    const el = messagesRef.current;
+    if (!el) return;
     function onScroll() {
-      const el = messagesRef.current
-      if (!el) return
-      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
-      userScrolledRef.current = !atBottom
+      const el = messagesRef.current;
+      if (!el) return;
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      userScrolledRef.current = !atBottom;
     }
-    el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
-  }, [])
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally triggers on messages change even though messages isn't read inside
+  useEffect(() => {
+    if (userScrolledRef.current) return;
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   useEffect(() => {
-    if (userScrolledRef.current) return
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  useEffect(() => {
-    if (!modelDropdownOpen) return
+    if (!modelDropdownOpen) return;
     function handleClickOutside(e: globalThis.MouseEvent) {
       if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
-        setModelDropdownOpen(false)
+        setModelDropdownOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [modelDropdownOpen])
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [modelDropdownOpen]);
 
   useEffect(() => {
-    if (!reasoningDropdownOpen) return
+    if (!reasoningDropdownOpen) return;
     function handleClickOutside(e: globalThis.MouseEvent) {
       if (reasoningDropdownRef.current && !reasoningDropdownRef.current.contains(e.target as Node)) {
-        setReasoningDropdownOpen(false)
+        setReasoningDropdownOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [reasoningDropdownOpen])
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [reasoningDropdownOpen]);
 
   useEffect(() => {
-    if (!slashMenuOpen) return
+    if (!slashMenuOpen) return;
     function handleClickOutside(e: globalThis.MouseEvent) {
       if (slashMenuRef.current && !slashMenuRef.current.contains(e.target as Node)) {
-        setSlashMenuOpen(false)
+        setSlashMenuOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [slashMenuOpen])
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [slashMenuOpen]);
 
   async function sendMessage() {
-    const text = input.trim()
-    if (!text || isLoading) return
+    const text = input.trim();
+    if (!text || isLoading) return;
 
-    setInput('')
-    setIsLoading(true)
-    userScrolledRef.current = false
+    setInput("");
+    setIsLoading(true);
+    userScrolledRef.current = false;
 
-    setMessages(prev => [
+    setMessages((prev) => [
       ...prev,
-      { role: 'user', content: text },
-      { role: 'assistant', content: '', blocks: [], streaming: true },
-    ])
+      { id: crypto.randomUUID(), role: "user", content: text },
+      { id: crypto.randomUUID(), role: "assistant", content: "", blocks: [], streaming: true },
+    ]);
 
-    const controller = new AbortController()
-    abortControllerRef.current = controller
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, session_id: sessionId, model, reasoning_effort: reasoningEffort }),
         signal: controller.signal,
-      })
+      });
 
-      const reader = response.body!.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
+      if (!response.body) throw new Error("No response body");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
 
       while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
+        const { done, value } = await reader.read();
+        if (done) break;
 
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop()!
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
 
         for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const payload = JSON.parse(line.slice(6))
+          if (!line.startsWith("data: ")) continue;
+          const payload = JSON.parse(line.slice(6));
 
-          const { type } = payload
+          const { type } = payload;
 
-          if (type === 'thinking_start') {
-            setMessages(prev => {
-              const msgs = [...prev]
-              const last = { ...msgs[msgs.length - 1] }
-              last.blocks = [...(last.blocks ?? []), { kind: 'thinking' as const, id: payload.index, content: '', done: false }]
-              msgs[msgs.length - 1] = last
-              return msgs
-            })
-          }
-
-          if (type === 'thinking_delta') {
-            setMessages(prev => {
-              const msgs = [...prev]
-              const last = { ...msgs[msgs.length - 1] }
-              last.blocks = (last.blocks ?? []).map(b =>
-                b.kind === 'thinking' && b.id === payload.index ? { ...b, content: b.content + payload.delta } : b
-              )
-              msgs[msgs.length - 1] = last
-              return msgs
-            })
-          }
-
-          if (type === 'thinking_end') {
-            setMessages(prev => {
-              const msgs = [...prev]
-              const last = { ...msgs[msgs.length - 1] }
-              last.blocks = (last.blocks ?? []).map(b =>
-                b.kind === 'thinking' && b.id === payload.index ? { ...b, done: true } : b
-              )
-              msgs[msgs.length - 1] = last
-              return msgs
-            })
-          }
-
-          if (type === 'tool_call_start') {
-            setMessages(prev => {
-              const msgs = [...prev]
-              const last = { ...msgs[msgs.length - 1] }
+          if (type === "thinking_start") {
+            setMessages((prev) => {
+              const msgs = [...prev];
+              const last = { ...msgs[msgs.length - 1] };
               last.blocks = [
                 ...(last.blocks ?? []),
-                { kind: 'tool_call' as const, id: payload.index, tool_name: payload.tool_name, args: '', done: false },
-              ]
-              msgs[msgs.length - 1] = last
-              return msgs
-            })
+                { kind: "thinking" as const, id: payload.index, content: "", done: false },
+              ];
+              msgs[msgs.length - 1] = last;
+              return msgs;
+            });
           }
 
-          if (type === 'tool_call_args_delta') {
-            setMessages(prev => {
-              const msgs = [...prev]
-              const last = { ...msgs[msgs.length - 1] }
-              last.blocks = (last.blocks ?? []).map(b =>
-                b.kind === 'tool_call' && b.id === payload.index ? { ...b, args: b.args + (payload.delta ?? '') } : b
-              )
-              msgs[msgs.length - 1] = last
-              return msgs
-            })
+          if (type === "thinking_delta") {
+            setMessages((prev) => {
+              const msgs = [...prev];
+              const last = { ...msgs[msgs.length - 1] };
+              last.blocks = (last.blocks ?? []).map((b) =>
+                b.kind === "thinking" && b.id === payload.index ? { ...b, content: b.content + payload.delta } : b
+              );
+              msgs[msgs.length - 1] = last;
+              return msgs;
+            });
           }
 
-          if (type === 'tool_call_end') {
-            setMessages(prev => {
-              const msgs = [...prev]
-              const last = { ...msgs[msgs.length - 1] }
-              last.blocks = (last.blocks ?? []).map(b =>
-                b.kind === 'tool_call' && b.id === payload.index
-                  ? { ...b, done: true, args: payload.complete_args || b.args || '' }
+          if (type === "thinking_end") {
+            setMessages((prev) => {
+              const msgs = [...prev];
+              const last = { ...msgs[msgs.length - 1] };
+              last.blocks = (last.blocks ?? []).map((b) =>
+                b.kind === "thinking" && b.id === payload.index ? { ...b, done: true } : b
+              );
+              msgs[msgs.length - 1] = last;
+              return msgs;
+            });
+          }
+
+          if (type === "tool_call_start") {
+            setMessages((prev) => {
+              const msgs = [...prev];
+              const last = { ...msgs[msgs.length - 1] };
+              last.blocks = [
+                ...(last.blocks ?? []),
+                { kind: "tool_call" as const, id: payload.index, tool_name: payload.tool_name, args: "", done: false },
+              ];
+              msgs[msgs.length - 1] = last;
+              return msgs;
+            });
+          }
+
+          if (type === "tool_call_args_delta") {
+            setMessages((prev) => {
+              const msgs = [...prev];
+              const last = { ...msgs[msgs.length - 1] };
+              last.blocks = (last.blocks ?? []).map((b) =>
+                b.kind === "tool_call" && b.id === payload.index ? { ...b, args: b.args + (payload.delta ?? "") } : b
+              );
+              msgs[msgs.length - 1] = last;
+              return msgs;
+            });
+          }
+
+          if (type === "tool_call_end") {
+            setMessages((prev) => {
+              const msgs = [...prev];
+              const last = { ...msgs[msgs.length - 1] };
+              last.blocks = (last.blocks ?? []).map((b) =>
+                b.kind === "tool_call" && b.id === payload.index
+                  ? { ...b, done: true, args: payload.complete_args || b.args || "" }
                   : b
-              )
-              msgs[msgs.length - 1] = last
-              return msgs
-            })
+              );
+              msgs[msgs.length - 1] = last;
+              return msgs;
+            });
           }
 
-          if (type === 'tool_response') {
-            setMessages(prev => {
-              const msgs = [...prev]
-              const last = { ...msgs[msgs.length - 1] }
+          if (type === "tool_response") {
+            setMessages((prev) => {
+              const msgs = [...prev];
+              const last = { ...msgs[msgs.length - 1] };
               last.blocks = [
                 ...(last.blocks ?? []),
-                { kind: 'tool_response' as const, tool_name: payload.tool_name, call_index: payload.call_index, content: payload.content },
-              ]
-              msgs[msgs.length - 1] = last
-              return msgs
-            })
+                {
+                  kind: "tool_response" as const,
+                  tool_name: payload.tool_name,
+                  call_index: payload.call_index,
+                  content: payload.content,
+                },
+              ];
+              msgs[msgs.length - 1] = last;
+              return msgs;
+            });
           }
 
-          if (type === 'text_delta') {
-            setMessages(prev => {
-              const msgs = [...prev]
-              const last = { ...msgs[msgs.length - 1] }
-              const blocks = last.blocks ?? []
-              const lastBlock = blocks[blocks.length - 1]
-              if (lastBlock?.kind === 'text') {
-                last.blocks = [...blocks.slice(0, -1), { ...lastBlock, content: lastBlock.content + payload.delta }]
+          if (type === "text_delta") {
+            setMessages((prev) => {
+              const msgs = [...prev];
+              const last = { ...msgs[msgs.length - 1] };
+              const blocks = last.blocks ?? [];
+              const lastBlock = blocks[blocks.length - 1];
+              if (lastBlock?.kind === "text") {
+                last.blocks = [...blocks.slice(0, -1), { ...lastBlock, content: lastBlock.content + payload.delta }];
               } else {
-                last.blocks = [...blocks, { kind: 'text' as const, content: payload.delta as string }]
+                last.blocks = [...blocks, { kind: "text" as const, content: payload.delta as string }];
               }
-              msgs[msgs.length - 1] = last
-              return msgs
-            })
+              msgs[msgs.length - 1] = last;
+              return msgs;
+            });
           }
 
-          if (type === 'done') {
-            setMessages(prev => {
-              const msgs = [...prev]
-              msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], streaming: false }
-              return msgs
-            })
+          if (type === "done") {
+            setMessages((prev) => {
+              const msgs = [...prev];
+              msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], streaming: false };
+              return msgs;
+            });
           }
 
-          if (type === 'error') {
-            setMessages(prev => {
-              const msgs = [...prev]
+          if (type === "error") {
+            setMessages((prev) => {
+              const msgs = [...prev];
               msgs[msgs.length - 1] = {
                 ...msgs[msgs.length - 1],
                 content: `Error: ${payload.error}`,
                 streaming: false,
                 error: true,
-              }
-              return msgs
-            })
+              };
+              return msgs;
+            });
           }
         }
       }
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        setMessages(prev => {
-          const updated = [...prev]
-          const last = { ...updated[updated.length - 1] }
-          last.blocks = (last.blocks ?? []).map(b => {
-            if ((b.kind === 'thinking' || b.kind === 'tool_call') && !b.done) {
-              return { ...b, done: true }
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = { ...updated[updated.length - 1] };
+          last.blocks = (last.blocks ?? []).map((b) => {
+            if ((b.kind === "thinking" || b.kind === "tool_call") && !b.done) {
+              return { ...b, done: true };
             }
-            return b
-          })
-          last.streaming = false
-          last.stopped = true
-          updated[updated.length - 1] = last
-          return updated
-        })
+            return b;
+          });
+          last.streaming = false;
+          last.stopped = true;
+          updated[updated.length - 1] = last;
+          return updated;
+        });
       } else {
-        setMessages(prev => {
-          const updated = [...prev]
+        setMessages((prev) => {
+          const updated = [...prev];
           updated[updated.length - 1] = {
             ...updated[updated.length - 1],
             content: `Error: ${(err as Error).message}`,
             streaming: false,
             error: true,
-          }
-          return updated
-        })
+          };
+          return updated;
+        });
       }
     } finally {
-      abortControllerRef.current = null
-      setIsLoading(false)
-      setTimeout(() => inputRef.current?.focus(), 0)
+      abortControllerRef.current = null;
+      setIsLoading(false);
+      setTimeout(() => inputRef.current?.focus(), 0);
     }
   }
 
-  const canRefresh = !isFetching && (!nextAllowedAt || Date.now() >= new Date(nextAllowedAt).getTime())
+  const canRefresh = !isFetching && (!nextAllowedAt || Date.now() >= new Date(nextAllowedAt).getTime());
 
   async function refreshData() {
-    const d = await fetch('/api/fetch', { method: 'POST' }).then(r => r.json())
-    if (d.status === 'started' || d.status === 'running') {
-      setIsFetching(true)
+    const d = await fetch("/api/fetch", { method: "POST" }).then((r) => r.json());
+    if (d.status === "started" || d.status === "running") {
+      setIsFetching(true);
     }
-    if (d.next_allowed_at) setNextAllowedAt(d.next_allowed_at)
+    if (d.next_allowed_at) setNextAllowedAt(d.next_allowed_at);
   }
 
   async function clearChat() {
-    await fetch(`/api/session/${sessionId}`, { method: 'DELETE' })
-    setMessages([])
+    await fetch(`/api/session/${sessionId}`, { method: "DELETE" });
+    setMessages([]);
   }
 
   function selectSkill(skill: SkillOption) {
-    const cursor = inputRef.current?.selectionStart ?? input.length
-    const textBeforeCursor = input.slice(0, cursor)
-    const lastSlash = textBeforeCursor.lastIndexOf('/')
+    const cursor = inputRef.current?.selectionStart ?? input.length;
+    const textBeforeCursor = input.slice(0, cursor);
+    const lastSlash = textBeforeCursor.lastIndexOf("/");
     if (lastSlash === -1) {
-      setSlashMenuOpen(false)
-      return
+      setSlashMenuOpen(false);
+      return;
     }
-    const textAfterCursor = input.slice(cursor)
-    const newInput = input.slice(0, lastSlash) + '/' + skill.id + ' ' + textAfterCursor
-    setInput(newInput)
-    setSlashMenuOpen(false)
+    const textAfterCursor = input.slice(cursor);
+    const newInput = `${input.slice(0, lastSlash)}/${skill.id} ${textAfterCursor}`;
+    setInput(newInput);
+    setSlashMenuOpen(false);
     setTimeout(() => {
       if (inputRef.current) {
-        const newCursor = lastSlash + skill.id.length + 2
-        inputRef.current.focus()
-        inputRef.current.setSelectionRange(newCursor, newCursor)
+        const newCursor = lastSlash + skill.id.length + 2;
+        inputRef.current.focus();
+        inputRef.current.setSelectionRange(newCursor, newCursor);
       }
-    }, 0)
+    }, 0);
   }
 
   function handleModelChange(value: string, e: MouseEvent) {
-    e.stopPropagation()
-    setModel(value)
-    setModelDropdownOpen(false)
-    localStorage.setItem('lorekeeper_model', value)
-    const defaultReasoning = models.find(m => m.id === value)?.default_reasoning ?? 'medium'
-    setReasoningEffort(defaultReasoning)
-    localStorage.setItem('lorekeeper_reasoning_effort', defaultReasoning)
+    e.stopPropagation();
+    setModel(value);
+    setModelDropdownOpen(false);
+    localStorage.setItem("lorekeeper_model", value);
+    const defaultReasoning = models.find((m) => m.id === value)?.default_reasoning ?? "medium";
+    setReasoningEffort(defaultReasoning);
+    localStorage.setItem("lorekeeper_reasoning_effort", defaultReasoning);
   }
 
   function handleReasoningChange(value: string, e: MouseEvent) {
-    e.stopPropagation()
-    setReasoningEffort(value)
-    setReasoningDropdownOpen(false)
-    localStorage.setItem('lorekeeper_reasoning_effort', value)
+    e.stopPropagation();
+    setReasoningEffort(value);
+    setReasoningDropdownOpen(false);
+    localStorage.setItem("lorekeeper_reasoning_effort", value);
   }
 
   function handleInputChange(e: ChangeEvent<HTMLTextAreaElement>) {
-    const val = e.target.value
-    setInput(val)
-    const cursor = e.target.selectionStart ?? val.length
-    const textBeforeCursor = val.slice(0, cursor)
-    const lastSlash = textBeforeCursor.lastIndexOf('/')
+    const val = e.target.value;
+    setInput(val);
+    const cursor = e.target.selectionStart ?? val.length;
+    const textBeforeCursor = val.slice(0, cursor);
+    const lastSlash = textBeforeCursor.lastIndexOf("/");
     if (lastSlash === 0) {
-      const fragment = textBeforeCursor.slice(1)
-      if (!fragment.includes(' ')) {
-        const filtered = skills.filter(s => s.id.startsWith(fragment))
+      const fragment = textBeforeCursor.slice(1);
+      if (!fragment.includes(" ")) {
+        const filtered = skills.filter((s) => s.id.startsWith(fragment));
         if (filtered.length > 0) {
-          setSlashFilter(fragment)
-          setSlashMenuOpen(true)
-          setSlashIndex(prev => (prev < filtered.length ? prev : 0))
-          return
+          setSlashFilter(fragment);
+          setSlashMenuOpen(true);
+          setSlashIndex((prev) => (prev < filtered.length ? prev : 0));
+          return;
         }
       }
     }
-    setSlashMenuOpen(false)
+    setSlashMenuOpen(false);
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (slashMenuOpen) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setSlashIndex(i => (i + 1) % filteredSkills.length)
-        return
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashIndex((i) => (i + 1) % filteredSkills.length);
+        return;
       }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setSlashIndex(i => (i - 1 + filteredSkills.length) % filteredSkills.length)
-        return
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashIndex((i) => (i - 1 + filteredSkills.length) % filteredSkills.length);
+        return;
       }
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault()
-        if (filteredSkills[slashIndex]) selectSkill(filteredSkills[slashIndex])
-        return
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        if (filteredSkills[slashIndex]) selectSkill(filteredSkills[slashIndex]);
+        return;
       }
-      if (e.key === 'Escape') {
-        setSlashMenuOpen(false)
-        return
+      if (e.key === "Escape") {
+        setSlashMenuOpen(false);
+        return;
       }
     }
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage()
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   }
 
@@ -688,38 +728,51 @@ export default function App() {
         <h1>⚔️ LoreKeeper</h1>
         {lastFetched && (
           <span className="last-fetched">
-            Last data update: {new Date(lastFetched).toLocaleString('en-GB', { hour12: true })}
+            Last data update: {new Date(lastFetched).toLocaleString("en-GB", { hour12: true })}
           </span>
         )}
-        <button className="refresh-btn" onClick={() => setShowConfirm(true)} disabled={!canRefresh}>
-          {isFetching ? 'Refreshing...' : 'Refresh Data'}
+        <button type="button" className="refresh-btn" onClick={() => setShowConfirm(true)} disabled={!canRefresh}>
+          {isFetching ? "Refreshing..." : "Refresh Data"}
         </button>
         {showConfirm && (
           <div className="confirm-overlay">
             <div className="confirm-dialog">
-              <p>⚠️ This will delete all of LoreKeeper's stored data and recreate it from the sources. This process takes a few minutes. Are you sure you want to proceed?</p>
+              <p>
+                ⚠️ This will delete all of LoreKeeper's stored data and recreate it from the sources. This process takes
+                a few minutes. Are you sure you want to proceed?
+              </p>
               <div className="confirm-actions">
-                <button className="confirm-yes" onClick={() => { setShowConfirm(false); refreshData() }}>Yes, refresh</button>
-                <button className="confirm-cancel" onClick={() => setShowConfirm(false)}>Cancel</button>
+                <button
+                  type="button"
+                  className="confirm-yes"
+                  onClick={() => {
+                    setShowConfirm(false);
+                    refreshData();
+                  }}
+                >
+                  Yes, refresh
+                </button>
+                <button type="button" className="confirm-cancel" onClick={() => setShowConfirm(false)}>
+                  Cancel
+                </button>
               </div>
             </div>
           </div>
         )}
-        <button className="clear-btn" onClick={clearChat} disabled={isLoading}>
+        <button type="button" className="clear-btn" onClick={clearChat} disabled={isLoading}>
           Clear Chat
         </button>
       </header>
 
       <div className="messages" ref={messagesRef}>
-        {messages.length === 0 && (
-          <div className="empty-state">Ask about your campaign lore...</div>
-        )}
-        {messages.map((msg, i) => (
-          <div key={i} className={`message ${msg.role} ${msg.error ? 'error' : ''}`}>
-            {msg.role === 'assistant'
-              ? <AssistantMessage msg={msg} />
-              : <div className="bubble">{linkify(msg.content)}</div>
-            }
+        {messages.length === 0 && <div className="empty-state">Ask about your campaign lore...</div>}
+        {messages.map((msg) => (
+          <div key={msg.id} className={`message ${msg.role} ${msg.error ? "error" : ""}`}>
+            {msg.role === "assistant" ? (
+              <AssistantMessage msg={msg} />
+            ) : (
+              <div className="bubble">{linkify(msg.content)}</div>
+            )}
           </div>
         ))}
         <div ref={bottomRef} />
@@ -729,13 +782,14 @@ export default function App() {
         <div className="selector-stack">
           <div className="model-select" ref={modelDropdownRef}>
             <button
-              className={`model-trigger${modelDropdownOpen ? ' open' : ''}`}
-              style={{ backgroundColor: models.find(m => m.id === model)?.color }}
-              onClick={() => setModelDropdownOpen(o => !o)}
+              type="button"
+              className={`model-trigger${modelDropdownOpen ? " open" : ""}`}
+              style={{ backgroundColor: models.find((m) => m.id === model)?.color }}
+              onClick={() => setModelDropdownOpen((o) => !o)}
             >
               <span className="model-name-sizer">
-                {models.map(m => (
-                  <span key={m.id} style={{ visibility: m.id === model ? 'visible' : 'hidden' }}>
+                {models.map((m) => (
+                  <span key={m.id} style={{ visibility: m.id === model ? "visible" : "hidden" }}>
                     {m.name}
                   </span>
                 ))}
@@ -744,27 +798,29 @@ export default function App() {
             </button>
             {modelDropdownOpen && (
               <div className="model-options">
-                {models.map(m => (
-                  <div
+                {models.map((m) => (
+                  <button
+                    type="button"
                     key={m.id}
-                    className={`model-option${m.id === model ? ' selected' : ''}`}
-                    onClick={e => handleModelChange(m.id, e)}
+                    className={`model-option${m.id === model ? " selected" : ""}`}
+                    onClick={(e) => handleModelChange(m.id, e)}
                   >
                     <span className="model-option-name">{m.name}</span>
                     <span className="model-option-desc">{m.description}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
           </div>
           <div className="reasoning-select" ref={reasoningDropdownRef}>
             <button
-              className={`reasoning-trigger${reasoningDropdownOpen ? ' open' : ''}`}
-              onClick={() => setReasoningDropdownOpen(o => !o)}
+              type="button"
+              className={`reasoning-trigger${reasoningDropdownOpen ? " open" : ""}`}
+              onClick={() => setReasoningDropdownOpen((o) => !o)}
             >
               <span className="reasoning-name-sizer">
-                {reasoningLevels.map(r => (
-                  <span key={r.id} style={{ visibility: r.id === reasoningEffort ? 'visible' : 'hidden' }}>
+                {reasoningLevels.map((r) => (
+                  <span key={r.id} style={{ visibility: r.id === reasoningEffort ? "visible" : "hidden" }}>
                     {r.name}
                   </span>
                 ))}
@@ -773,15 +829,16 @@ export default function App() {
             </button>
             {reasoningDropdownOpen && (
               <div className="reasoning-options">
-                {reasoningLevels.map(r => (
-                  <div
+                {reasoningLevels.map((r) => (
+                  <button
+                    type="button"
                     key={r.id}
-                    className={`reasoning-option${r.id === reasoningEffort ? ' selected' : ''}`}
-                    onClick={e => handleReasoningChange(r.id, e)}
+                    className={`reasoning-option${r.id === reasoningEffort ? " selected" : ""}`}
+                    onClick={(e) => handleReasoningChange(r.id, e)}
                   >
                     <span className="reasoning-option-name">{r.name}</span>
                     <span className="reasoning-option-desc">{r.description}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -790,22 +847,26 @@ export default function App() {
         <div className="input-row">
           {slashMenuOpen && filteredSkills.length > 0 && (
             <div className="slash-menu" ref={slashMenuRef}>
-              <div className="slash-menu-items">
+              <div role="listbox" className="slash-menu-items">
                 {filteredSkills.map((skill, i) => (
                   <div
                     key={skill.id}
-                    className={`slash-menu-item${i === slashIndex ? ' selected' : ''}`}
+                    role="option"
+                    aria-selected={i === slashIndex}
+                    tabIndex={-1}
+                    className={`slash-menu-item${i === slashIndex ? " selected" : ""}`}
                     onMouseEnter={() => setSlashIndex(i)}
-                    onMouseDown={e => { e.preventDefault(); selectSkill(skill) }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      selectSkill(skill);
+                    }}
                   >
                     <span className="slash-menu-item-name">{skill.title}</span>
                     <span className="slash-menu-item-desc">{skill.description}</span>
                   </div>
                 ))}
               </div>
-              {SHOW_SKILL_HINT && (
-                <div className="slash-menu-footer">↵ to select</div>
-              )}
+              {SHOW_SKILL_HINT && <div className="slash-menu-footer">↵ to select</div>}
             </div>
           )}
           <textarea
@@ -817,12 +878,17 @@ export default function App() {
             disabled={isLoading}
             rows={2}
           />
-          {isLoading
-            ? <button className="stop-btn" onClick={() => abortControllerRef.current?.abort()}>Stop</button>
-            : <button onClick={sendMessage} disabled={!input.trim()}>Send</button>
-          }
+          {isLoading ? (
+            <button type="button" className="stop-btn" onClick={() => abortControllerRef.current?.abort()}>
+              Stop
+            </button>
+          ) : (
+            <button type="button" onClick={sendMessage} disabled={!input.trim()}>
+              Send
+            </button>
+          )}
         </div>
       </div>
     </div>
-  )
+  );
 }
