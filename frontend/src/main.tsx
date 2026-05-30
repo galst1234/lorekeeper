@@ -5,7 +5,7 @@ import './App.css'
 import App from './App'
 
 Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN,
+  dsn: window.__env__?.SENTRY_DSN,
   sendDefaultPii: true,
   tracesSampleRate: 1.0,
   integrations: [
