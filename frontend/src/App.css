@@ -492,6 +492,39 @@ body {
   cursor: not-allowed;
 }
 
+.input-area .model-option,
+.input-area .reasoning-option {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: inherit;
+  align-self: stretch;
+  white-space: normal;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: inherit;
+  transition: background 0.15s;
+}
+
+.input-area .model-option:not(:last-child),
+.input-area .reasoning-option:not(:last-child) {
+  border-bottom: 1px solid #2a2030;
+}
+
+.input-area .model-option:hover:not(:disabled),
+.input-area .reasoning-option:hover:not(:disabled) {
+  background: #221e2a;
+}
+
+.input-area .model-option.selected,
+.input-area .reasoning-option.selected {
+  background: #1e1a28;
+}
+
 /* Markdown rendering inside assistant bubbles */
 .message.assistant .bubble p {
   margin: 0 0 0.6em;
@@ -793,7 +826,7 @@ body {
   color: #f0d0d0;
 }
 
-.input-area .stop-btn:hover {
+.input-area button.stop-btn:hover:not(:disabled) {
   background: #7a2020;
 }
 

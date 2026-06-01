@@ -45,15 +45,22 @@ const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g;
 
 function linkify(text: string): ReactNode[] {
   const parts = text.split(URL_REGEX);
-  return parts.map((part) =>
-    URL_REGEX.test(part) ? (
-      <a key={part} href={part} target="_blank" rel="noopener noreferrer">
-        {part}
-      </a>
-    ) : (
-      part
-    )
-  );
+  // odd indices from split(capturingRegex) are always the captured URL segments
+  const result: ReactNode[] = [];
+  let linkCount = 0;
+  parts.forEach((part, i) => {
+    if (i % 2 === 0) {
+      result.push(part);
+    } else {
+      result.push(
+        <a key={`link-${linkCount}`} href={part} target="_blank" rel="noopener noreferrer">
+          {part}
+        </a>
+      );
+      linkCount++;
+    }
+  });
+  return result;
 }
 
 function ThinkingBlock({ block }: { block: ThinkingBlock }) {
@@ -318,6 +325,7 @@ export default function App() {
     const d = await fetch("/api/fetch-status").then((r) => r.json());
     setIsFetching(d.running);
     setNextAllowedAt(d.next_allowed_at ?? null);
+    return d.running as boolean;
   }, []);
 
   useEffect(() => {
@@ -344,8 +352,8 @@ export default function App() {
     if (!isFetching) return;
     const id = setInterval(() => {
       loadFetchStatus()
-        .then(() => {
-          if (!isFetching) {
+        .then((running) => {
+          if (!running) {
             fetch("/api/last-fetched")
               .then((r) => r.json())
               .then((d) => setLastFetched(d.fetched_at))
