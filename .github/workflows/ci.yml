@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
       - uses: step-security/paths-filter@v4
@@ -19,6 +20,10 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - '.github/workflows/ci.yml'
+              - '.github/actions/**'
+            frontend:
+              - 'frontend/**'
               - '.github/workflows/ci.yml'
               - '.github/actions/**'
 
@@ -47,6 +52,17 @@ jobs:
         uses: ./.github/actions/ty-check
         with:
           project-dir: backend
+
+  biome:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Biome
+        uses: ./.github/actions/biome-check
+        with:
+          project-dir: frontend
 
   pytest:
     needs: detect-changes

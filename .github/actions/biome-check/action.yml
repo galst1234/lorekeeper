@@ -1,0 +1,25 @@
+name: Run Biome
+description: Run Biome linter and formatter check on a specific project
+
+inputs:
+  project-dir:
+    description: 'Project directory to check'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: ${{ inputs.project-dir }}/package-lock.json
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+      working-directory: ${{ inputs.project-dir }}
+    - name: Run Biome
+      shell: bash
+      run: npx biome check ./src
+      working-directory: ${{ inputs.project-dir }}

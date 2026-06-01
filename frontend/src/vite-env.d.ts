@@ -2,6 +2,6 @@
 
 interface Window {
   __env__?: {
-    SENTRY_DSN?: string
-  }
+    SENTRY_DSN?: string;
+  };
 }
