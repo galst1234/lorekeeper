@@ -356,7 +356,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
             ),
         )
         error_occurred = False
-        try:  # noqa: PLW0717
+        try:
             while True:
                 item = await queue.get()
                 if item is None:
