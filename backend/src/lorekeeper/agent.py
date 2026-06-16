@@ -21,7 +21,7 @@ MAX_HISTORY_TURNS = 10
 
 
 class ModelChoice(StrEnum):
-    GPT5_MINI = "gpt-5-mini-2025-08-07"
+    GPT54_NANO = "gpt-5.4-nano-2026-03-17"
     GPT54_MINI = "gpt-5.4-mini-2026-03-17"
     GPT54 = "gpt-5.4-2026-03-05"
 
@@ -36,21 +36,21 @@ class ReasoningEffort(StrEnum):
 
 
 REASONING_METADATA: dict[ReasoningEffort, dict[str, str]] = {
-    ReasoningEffort.NONE: {"name": "None", "description": "No reasoning - fastest responses (gpt-5.4 default)"},
+    ReasoningEffort.NONE: {"name": "None", "description": "No reasoning - fastest responses"},
     ReasoningEffort.MINIMAL: {"name": "Minimal", "description": "Very light reasoning pass"},
     ReasoningEffort.LOW: {"name": "Low", "description": "Light reasoning for simple multi-step questions"},
-    ReasoningEffort.MEDIUM: {"name": "Medium", "description": "Balanced reasoning - model default for gpt-5-mini"},
+    ReasoningEffort.MEDIUM: {"name": "Medium", "description": "Balanced reasoning for harder questions"},
     ReasoningEffort.HIGH: {"name": "High", "description": "Deep reasoning for complex lore questions"},
     ReasoningEffort.XHIGH: {"name": "xHigh", "description": "Maximum reasoning - slowest but most thorough"},
 }
 
 
 MODEL_METADATA: dict[ModelChoice, dict[str, str]] = {
-    ModelChoice.GPT5_MINI: {
-        "name": "GPT-5 mini $",
+    ModelChoice.GPT54_NANO: {
+        "name": "GPT-5.4 nano $",
         "description": "Fast and efficient - great for everyday lore lookups",
         "color": "#16141a",
-        "default_reasoning": ReasoningEffort.MEDIUM,
+        "default_reasoning": ReasoningEffort.NONE,
     },
     ModelChoice.GPT54_MINI: {
         "name": "GPT-5.4 mini $x3",
@@ -262,7 +262,7 @@ def create_agent() -> Agent:
         timeout=60,
     )
 
-    model = build_model(ModelChoice.GPT5_MINI)
+    model = build_model(ModelChoice.GPT54_NANO)
 
     return Agent(
         model=model,

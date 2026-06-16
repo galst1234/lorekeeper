@@ -43,7 +43,7 @@ class Settings(BaseSettings):
 
     # OpenAI
     openai_api_key: str
-    openai_model: str = "gpt-5-mini-2025-08-07"
+    openai_model: str = "gpt-5.4-nano-2026-03-17"
 
     # Misc
     data_dir: Path = Field(default=Path("."))

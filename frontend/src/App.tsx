@@ -40,6 +40,10 @@ interface SkillOption {
 }
 
 const SHOW_SKILL_HINT = true;
+const DEFAULT_MODEL = "gpt-5.4-nano-2026-03-17";
+const LEGACY_MODEL_MIGRATIONS: Record<string, string> = {
+  "gpt-5-mini-2025-08-07": DEFAULT_MODEL,
+};
 
 const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g;
 
@@ -284,11 +288,19 @@ function getOrCreateSessionId() {
 }
 
 function getOrCreateModel() {
-  return localStorage.getItem("lorekeeper_model") ?? "gpt-5-mini-2025-08-07";
+  const stored = localStorage.getItem("lorekeeper_model");
+  if (!stored) return DEFAULT_MODEL;
+  const migrated = LEGACY_MODEL_MIGRATIONS[stored];
+  if (migrated) {
+    localStorage.setItem("lorekeeper_model", migrated);
+    localStorage.setItem("lorekeeper_reasoning_effort", "none");
+    return migrated;
+  }
+  return stored;
 }
 
 function getOrCreateReasoningEffort() {
-  return localStorage.getItem("lorekeeper_reasoning_effort") ?? "medium";
+  return localStorage.getItem("lorekeeper_reasoning_effort") ?? "none";
 }
 
 export default function App() {

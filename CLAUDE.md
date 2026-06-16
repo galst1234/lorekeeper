@@ -90,7 +90,7 @@ cd /d/dev/lorekeeper/backend && uv run pre-commit run --all-files
 - Wiki pages have `"title"` in metadata; characters have `"name"`
 
 ### Model Configuration
-Default model is OpenAI (`gpt-5-mini-2025-08-07`). Groq (Llama 4 Scout 17B, token-sensitive) and OpenRouter are alternatives. Local Ollama is also supported. Model is selected via env vars in `config.py`.
+Default model is OpenAI (`gpt-5.4-nano-2026-03-17`). Groq (Llama 4 Scout 17B, token-sensitive) and OpenRouter are alternatives. Local Ollama is also supported. Model is selected via env vars in `config.py`.
 
 ### Logging
 Root logger is set to WARNING; app logger to DEBUG. Noisy loggers that must be silenced: `httpcore`, `httpx`, `groq`, `mcp`, `asyncio`.

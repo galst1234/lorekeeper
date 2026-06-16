@@ -71,8 +71,8 @@ agent = LoreKeeperAgent()
 class ChatRequest(BaseModel):
     message: str
     session_id: str = ""
-    model: ModelChoice = ModelChoice.GPT5_MINI
-    reasoning_effort: ReasoningEffort = ReasoningEffort.MEDIUM
+    model: ModelChoice = ModelChoice.GPT54_NANO
+    reasoning_effort: ReasoningEffort = ReasoningEffort.NONE
 
 
 @app.get("/api/models")
