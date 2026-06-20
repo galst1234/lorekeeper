@@ -81,8 +81,15 @@ class PageSummary(BaseModel):
     id: str
     slug: str
     title: str
-    tags: list[str]
-    gm_only: bool
+
+
+class CharacterCatalog(BaseModel):
+    """Minimal character representation for existence checks and link resolution."""
+
+    id: str
+    slug: str
+    name: str
+    is_player_character: bool
 
 
 class CharacterRequest(BaseModel):

@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from enum import StrEnum
 from typing import Any
 
+import openai
 from pydantic_ai import Agent, AgentStreamEvent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, ThinkingPart, UserPromptPart
@@ -206,7 +207,8 @@ logger = logging.getLogger(__name__)
 
 
 def build_model(choice: ModelChoice) -> OpenAIResponsesModel:
-    return OpenAIResponsesModel(choice.value, provider=OpenAIProvider(api_key=settings.openai_api_key))
+    client = openai.AsyncOpenAI(api_key=settings.openai_api_key, max_retries=5)
+    return OpenAIResponsesModel(choice.value, provider=OpenAIProvider(openai_client=client))
 
 
 SYSTEM_PROMPT = (

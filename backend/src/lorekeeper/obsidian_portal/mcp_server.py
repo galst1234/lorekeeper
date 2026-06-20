@@ -22,6 +22,7 @@ from lorekeeper.obsidian_portal.calendar_parser import CalendarDate
 from lorekeeper.obsidian_portal.link_injector import inject_links
 from lorekeeper.obsidian_portal.models import (
     Character,
+    CharacterCatalog,
     CharacterRequest,
     Page,
     PageSummary,
@@ -58,22 +59,34 @@ async def _get_session() -> OAuth1Session:
 
 
 @mcp.tool(tags={"WikiPage", "Post"})
-async def fetch_wiki_pages_tool(campaign_id: str = _CAMPAIGN_ID) -> list[PageSummary]:
+async def fetch_wiki_pages_tool(
+    campaign_id: str = _CAMPAIGN_ID,
+    title_filter: str | None = None,
+) -> list[PageSummary]:
     """
-    Fetch a summary of all wiki pages in the campaign (id, slug, title, tags).
+    Fetch a summary of all wiki pages in the campaign (id, slug, title).
 
     Use this to build an entity catalog for link resolution. Bodies are excluded —
     use `fetch_wiki_page_tool` if you need the full content of a specific page.
 
+    Prefer `title_filter` whenever you are looking for a specific page by name —
+    it returns only matching results and avoids loading the full catalog.
+
     Args:
         campaign_id (str): The campaign ID — pre-filled, do not supply.
+        title_filter (str | None): If provided, return only pages whose title contains
+            this string (case-insensitive). Omit to return all pages.
 
     Returns:
-        list[PageSummary]: All wiki pages with id, slug, title, tags, and gm_only flag.
+        list[PageSummary]: Matching wiki pages with id, slug, and title.
     """
     session = await _get_session()
     pages = await fetch_wiki_pages(session, campaign_id)
-    return [PageSummary.model_validate(p.model_dump(by_alias=False)) for p in pages]
+    summaries = [PageSummary.model_validate(p.model_dump(by_alias=False)) for p in pages]
+    if title_filter:
+        needle = title_filter.lower()
+        summaries = [s for s in summaries if needle in s.title.lower()]
+    return summaries
 
 
 @mcp.tool(tags={"WikiPage", "Post"})
@@ -154,21 +167,35 @@ async def inject_adventure_log_links_tool(
 
 
 @mcp.tool(tags={"Character"})
-async def fetch_characters_tool(campaign_id: str = _CAMPAIGN_ID) -> list[Character]:
+async def fetch_characters_tool(
+    campaign_id: str = _CAMPAIGN_ID,
+    name_filter: str | None = None,
+) -> list[CharacterCatalog]:
     """
     Fetch characters from Obsidian Portal for the specified campaign ID.
 
-    Note: To conserve bandwidth, the bio and description fields are not returned.
-    If you need the full text of these fields you need to retrieve the pages individually using `fetch_character_tool`.
+    Returns a compact catalog (id, slug, name, is_player_character) suitable for
+    existence checks and link resolution. Use `fetch_character_tool` if you need
+    the full bio or description of a specific character.
+
+    Prefer `name_filter` whenever you are looking for a specific character by name —
+    it returns only matching results and avoids loading the full catalog.
 
     Args:
         campaign_id (str): The campaign ID — pre-filled, do not supply.
+        name_filter (str | None): If provided, return only characters whose name contains
+            this string (case-insensitive). Omit to return all characters.
 
     Returns:
-        list[Character]: A list of characters.
+        list[CharacterCatalog]: Matching characters with id, slug, name, is_player_character.
     """
     session = await _get_session()
-    return await fetch_characters(session, campaign_id)
+    characters = await fetch_characters(session, campaign_id)
+    catalog = [CharacterCatalog.model_validate(c.model_dump()) for c in characters]
+    if name_filter:
+        needle = name_filter.lower()
+        catalog = [c for c in catalog if needle in c.name.lower()]
+    return catalog
 
 
 @mcp.tool(tags={"Character"})
