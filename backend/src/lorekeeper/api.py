@@ -340,6 +340,8 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     run_settings = OpenAIResponsesModelSettings(
         openai_reasoning_effort=req.reasoning_effort.value,
         openai_reasoning_summary="concise",
+        openai_store=True,
+        openai_previous_response_id="auto",
     )
 
     async def event_stream() -> AsyncGenerator[str]:

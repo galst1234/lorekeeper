@@ -10,7 +10,7 @@ import openai
 from pydantic_ai import Agent, AgentStreamEvent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, ThinkingPart, UserPromptPart
-from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
+from pydantic_ai.models.openai import OpenAICompaction, OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from lorekeeper import skills
@@ -270,6 +270,7 @@ def create_agent() -> Agent:
         model=model,
         name="LoreKeeper",
         toolsets=[qdrant_mcp, obsidian_portal_mcp],
+        capabilities=[OpenAICompaction()],
     )
 
 
