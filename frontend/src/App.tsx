@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+const API_BASE = `${import.meta.env.BASE_URL}api`;
+
 interface ModelOption {
   id: string;
   name: string;
@@ -334,27 +336,27 @@ export default function App() {
   const filteredSkills = skills.filter((s) => s.id.startsWith(slashFilter));
 
   const loadFetchStatus = useCallback(async () => {
-    const d = await fetch("/api/fetch-status").then((r) => r.json());
+    const d = await fetch(`${API_BASE}/fetch-status`).then((r) => r.json());
     setIsFetching(d.running);
     setNextAllowedAt(d.next_allowed_at ?? null);
     return d.running as boolean;
   }, []);
 
   useEffect(() => {
-    fetch("/api/last-fetched")
+    fetch(`${API_BASE}/last-fetched`)
       .then((r) => r.json())
       .then((d) => setLastFetched(d.fetched_at))
       .catch(() => {});
     loadFetchStatus().catch(() => {});
-    fetch("/api/models")
+    fetch(`${API_BASE}/models`)
       .then((r) => r.json())
       .then((d) => setModels(d))
       .catch(() => {});
-    fetch("/api/reasoning-levels")
+    fetch(`${API_BASE}/reasoning-levels`)
       .then((r) => r.json())
       .then((d) => setReasoningLevels(d))
       .catch(() => {});
-    fetch("/api/skills")
+    fetch(`${API_BASE}/skills`)
       .then((r) => r.json())
       .then((d) => setSkills(d))
       .catch(() => {});
@@ -366,7 +368,7 @@ export default function App() {
       loadFetchStatus()
         .then((running) => {
           if (!running) {
-            fetch("/api/last-fetched")
+            fetch(`${API_BASE}/last-fetched`)
               .then((r) => r.json())
               .then((d) => setLastFetched(d.fetched_at))
               .catch(() => {});
@@ -447,7 +449,7 @@ export default function App() {
     abortControllerRef.current = controller;
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch(`${API_BASE}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, session_id: sessionId, model, reasoning_effort: reasoningEffort }),
@@ -643,7 +645,7 @@ export default function App() {
   const canRefresh = !isFetching && (!nextAllowedAt || Date.now() >= new Date(nextAllowedAt).getTime());
 
   async function refreshData() {
-    const d = await fetch("/api/fetch", { method: "POST" }).then((r) => r.json());
+    const d = await fetch(`${API_BASE}/fetch`, { method: "POST" }).then((r) => r.json());
     if (d.status === "started" || d.status === "running") {
       setIsFetching(true);
     }
@@ -651,7 +653,7 @@ export default function App() {
   }
 
   async function clearChat() {
-    await fetch(`/api/session/${sessionId}`, { method: "DELETE" });
+    await fetch(`${API_BASE}/session/${sessionId}`, { method: "DELETE" });
     setMessages([]);
   }
 
