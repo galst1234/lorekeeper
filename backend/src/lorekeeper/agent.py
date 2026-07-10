@@ -9,7 +9,7 @@ from typing import Any
 import openai
 from pydantic_ai import Agent, AgentStreamEvent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
-from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, ThinkingPart, UserPromptPart
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 from pydantic_ai.models.openai import OpenAICompaction, OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 
@@ -17,8 +17,6 @@ from lorekeeper import skills
 from lorekeeper.config import settings
 
 type EventStreamHandler = Callable[[Any, AsyncIterable[AgentStreamEvent]], Coroutine[Any, Any, None]] | None
-
-MAX_HISTORY_TURNS = 10
 
 
 class ModelChoice(StrEnum):
@@ -68,72 +66,15 @@ MODEL_METADATA: dict[ModelChoice, dict[str, str]] = {
 }
 
 
-def strip_tool_messages(messages: list[ModelMessage]) -> list[ModelMessage]:
-    """Keep only user prompts and final text responses - discard tool calls/returns."""
-    clean: list[ModelMessage] = []
-    for msg in messages:
-        if isinstance(msg, ModelRequest):
-            user_parts = [p for p in msg.parts if isinstance(p, UserPromptPart)]
-            if user_parts:
-                clean.append(ModelRequest(parts=user_parts))
-        elif isinstance(msg, ModelResponse):
-            kept_parts = [p for p in msg.parts if isinstance(p, (TextPart, ThinkingPart))]
-            if kept_parts:
-                clean.append(ModelResponse(parts=kept_parts, model_name=msg.model_name, timestamp=msg.timestamp))
-    return clean
-
-
-def _find_turn_boundary(messages: list[ModelMessage], max_turns: int) -> int | None:
-    """Find the index of the max_turns-th user turn from the end, or None if fewer turns exist."""
-    turn_count = 0
-    for i in range(len(messages) - 1, -1, -1):
-        msg = messages[i]
-        if isinstance(msg, ModelRequest) and any(isinstance(p, UserPromptPart) for p in msg.parts):
-            turn_count += 1
-            if turn_count == max_turns:
-                return i
-    return None
-
-
-def _apply_trim_to_message(msg: ModelMessage, i: int, boundary: int) -> ModelMessage | None:
-    """Transform a message: keep as-is if recent, strip tools if older. Return None if discarded."""
-    if i >= boundary:
-        return msg
-    if isinstance(msg, ModelRequest):
-        kept = [p for p in msg.parts if isinstance(p, UserPromptPart)]
-        return ModelRequest(parts=kept) if kept else None
-    if isinstance(msg, ModelResponse):
-        kept_parts = [p for p in msg.parts if isinstance(p, (TextPart, ThinkingPart))]
-        return (
-            ModelResponse(parts=kept_parts, model_name=msg.model_name, timestamp=msg.timestamp) if kept_parts else None
-        )
-    return None
-
-
-def trim_history(messages: list[ModelMessage], max_turns: int) -> list[ModelMessage]:
-    """Return history with the last max_turns kept intact; older turns stripped of tool messages.
-
-    A 'turn' is a ModelRequest containing a UserPromptPart (not a tool-result request).
-    TextPart and ThinkingPart from older turns are preserved so the agent can still read
-    its own prior summaries without carrying raw tool results indefinitely.
-    """
-    boundary = _find_turn_boundary(messages, max_turns)
-    if boundary is None:
-        return messages
-    return [
-        trimmed for i, msg in enumerate(messages) if (trimmed := _apply_trim_to_message(msg, i, boundary)) is not None
-    ]
-
-
 class LoreKeeperAgent:
     """Agent that owns session history and active skill state."""
 
     def __init__(self) -> None:
-        self._sessions: dict[str, list[ModelMessage]] = {}
+        self._previous_response_ids: dict[str, str] = {}
         self._active_skills: dict[str, str] = {}
 
     def clear_session(self, session_id: str) -> None:
-        self._sessions.pop(session_id, None)
+        self._previous_response_ids.pop(session_id, None)
         self._active_skills.pop(session_id, None)
 
     def _resolve_user_prompt(self, session_id: str, message: str) -> str:
@@ -156,21 +97,28 @@ class LoreKeeperAgent:
         active = self._active_skills.get(session_id)
         return f"{SYSTEM_PROMPT}\n\n---\n\n{active}" if active else SYSTEM_PROMPT
 
-    def _get_history(self, session_id: str) -> list[ModelMessage] | None:
-        """Return trimmed message history for this session."""
-        history = self._sessions.get(session_id)
-        if not history:
-            return None
-        return trim_history(history, MAX_HISTORY_TURNS)
+    def _build_model_settings(
+        self,
+        session_id: str,
+        model_settings: OpenAIResponsesModelSettings,
+    ) -> OpenAIResponsesModelSettings:
+        """Use OpenAI server-side response chaining when a previous response is available."""
+        previous_response_id = self._previous_response_ids.get(session_id)
+        if not previous_response_id:
+            return model_settings
+        return OpenAIResponsesModelSettings(**{**model_settings, "openai_previous_response_id": previous_response_id})
 
     def _finalize(self, session_id: str, messages: list[ModelMessage]) -> None:
-        """Store full message history. Clear active skill if [SKILL_COMPLETE] is in the last response."""
-        self._sessions[session_id] = list(messages)
+        """Store the latest OpenAI response ID. Clear active skill when the workflow completes."""
+        last = next((m for m in reversed(messages) if isinstance(m, ModelResponse)), None)
+        if isinstance(last, ModelResponse) and last.provider_response_id:
+            self._previous_response_ids[session_id] = last.provider_response_id
+        else:
+            self._previous_response_ids.pop(session_id, None)
         if session_id not in self._active_skills:
             return
-        last = next((m for m in reversed(messages) if isinstance(m, ModelResponse)), None)
         if isinstance(last, ModelResponse) and any(
-            "[SKILL_COMPLETE]" in str(p.content) for p in last.parts if isinstance(p, (TextPart, ThinkingPart))
+            "[SKILL_COMPLETE]" in str(p.content) for p in last.parts if isinstance(p, TextPart)
         ):
             self._active_skills.pop(session_id, None)
 
@@ -187,9 +135,8 @@ class LoreKeeperAgent:
         """Stream a chat response, handling skill dispatch and history management."""
         async with create_agent().run_stream(
             user_prompt=self._resolve_user_prompt(session_id, message),
-            message_history=self._get_history(session_id),
             model=model,
-            model_settings=model_settings,
+            model_settings=self._build_model_settings(session_id, model_settings),
             instructions=self._build_instructions(session_id),
             event_stream_handler=event_stream_handler,
         ) as stream:
@@ -279,8 +226,6 @@ async def main() -> None:
 
     print("Agent ready. Type your question (or 'exit' to quit):")
     user_input = input("User: ").strip()
-    history: list[ModelMessage] | None = None
-
     while user_input.lower() != "exit":
         if not user_input:
             user_input = input("User: ").strip()
@@ -289,13 +234,8 @@ async def main() -> None:
         try:
             result = await agent.run(
                 user_prompt=user_input,
-                message_history=(
-                    history[-(MAX_HISTORY_TURNS * 2) :] if history and len(history) > MAX_HISTORY_TURNS * 2 else history
-                ),
                 instructions=SYSTEM_PROMPT,
             )
-            # CLI scratch loop — agent API uses trim_history instead
-            history = strip_tool_messages(result.all_messages())
             if hasattr(result, "usage"):
                 logger.info("Token usage: %s", result.usage())
             print(f"Agent: {result.output}\n")
