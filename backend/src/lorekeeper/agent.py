@@ -8,7 +8,7 @@ from typing import Any
 
 import openai
 from pydantic_ai import Agent, AgentStreamEvent
-from pydantic_ai.mcp import MCPServerStreamableHTTP
+from pydantic_ai.mcp import MCPToolset
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 from pydantic_ai.models.openai import OpenAICompaction, OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -208,13 +208,13 @@ SYSTEM_PROMPT = (
 
 
 def create_agent() -> Agent:
-    qdrant_mcp = MCPServerStreamableHTTP(
-        url=os.environ.get("QDRANT_MCP_URL", "http://127.0.0.1:8000/mcp"),
-        timeout=60,
+    qdrant_mcp = MCPToolset(
+        os.environ.get("QDRANT_MCP_URL", "http://127.0.0.1:8000/mcp"),
+        init_timeout=60,
     )
-    obsidian_portal_mcp = MCPServerStreamableHTTP(
-        url=os.environ.get("OBSIDIAN_MCP_URL", "http://127.0.0.1:8080/mcp"),
-        timeout=60,
+    obsidian_portal_mcp = MCPToolset(
+        os.environ.get("OBSIDIAN_MCP_URL", "http://127.0.0.1:8080/mcp"),
+        init_timeout=60,
     )
 
     model = build_model(ModelChoice.GPT56_LUNA)
@@ -243,7 +243,7 @@ async def main() -> None:
                 instructions=SYSTEM_PROMPT,
             )
             if hasattr(result, "usage"):
-                logger.info("Token usage: %s", result.usage())
+                logger.info("Token usage: %s", result.usage)
             print(f"Agent: {result.output}\n")
         except Exception as e:
             error_msg = f"Error running agent: {e}"
