@@ -249,7 +249,7 @@ def _get_special_day_entries(block: SpecialDayBlock) -> list[str]:
 # ── Public query API ───────────────────────────────────────────────────────────
 
 
-def get_entries(  # noqa: C901
+def get_entries(  # ruff:ignore[complex-structure]
     page: CalendarPage,
     start: CalendarDate,
     end: CalendarDate | None = None,

@@ -99,7 +99,7 @@ async def create_quest(
     await update_wiki_page(session, campaign_id, quest_page_id, body=render_body(parsed))
 
 
-async def update_quest(  # noqa: PLR0913
+async def update_quest(  # ruff:ignore[too-many-arguments]
     session: OAuth1Session,
     campaign_id: str,
     quest_page_id: str,

@@ -71,8 +71,8 @@ agent = LoreKeeperAgent()
 class ChatRequest(BaseModel):
     message: str
     session_id: str = ""
-    model: ModelChoice = ModelChoice.GPT54_NANO
-    reasoning_effort: ReasoningEffort = ReasoningEffort.NONE
+    model: ModelChoice = ModelChoice.GPT56_LUNA
+    reasoning_effort: ReasoningEffort = ReasoningEffort.LOW
 
 
 @app.get("/api/models")
@@ -171,7 +171,7 @@ class _StreamState:
     tcid_to_info: dict[str, tuple[str, int]] = field(default_factory=dict)
 
 
-async def _collect_agent_events(  # noqa: C901, PLR0912, PLR0915
+async def _collect_agent_events(  # ruff:ignore[complex-structure, too-many-branches, too-many-statements]
     queue: asyncio.Queue[str | None],
     _ctx: object,
     events: AsyncIterable[AgentStreamEvent],
@@ -288,7 +288,7 @@ async def _collect_agent_events(  # noqa: C901, PLR0912, PLR0915
         await queue.put(json.dumps({"type": f"{bt}_end", "index": si}))
 
 
-async def _run_agent_task(  # noqa: PLR0913
+async def _run_agent_task(  # ruff:ignore[too-many-arguments]
     agent_instance: LoreKeeperAgent,
     queue: asyncio.Queue[str | None],
     *,
@@ -305,7 +305,7 @@ async def _run_agent_task(  # noqa: PLR0913
         await _collect_agent_events(queue, _ctx, evts, state)
 
     stream_ref: object = None
-    try:  # noqa: PLW0717
+    try:  # ruff:ignore[too-many-statements-in-try-clause]
         async with agent_instance.chat_stream(
             session_id,
             message,
@@ -317,7 +317,7 @@ async def _run_agent_task(  # noqa: PLR0913
             async for delta in stream.stream_text(delta=True):
                 if delta:
                     await queue.put(json.dumps({"type": "text_delta", "delta": delta}))
-        try:  # noqa: PLW0717
+        try:  # ruff:ignore[too-many-statements-in-try-clause]
             usage = stream_ref.usage()  # type: ignore[union-attr]
             model_label = getattr(run_model, "model_name", str(run_model))
             if getattr(usage, "request_tokens", None):
@@ -338,10 +338,12 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     session_id = req.session_id or str(uuid.uuid4())
     run_model = build_model(req.model)
     run_settings = OpenAIResponsesModelSettings(
-        openai_reasoning_effort=req.reasoning_effort.value,
+        # pydantic-ai's stub doesn't yet include "max", GPT-5.6's newest reasoning tier
+        openai_reasoning_effort=req.reasoning_effort.value,  # ty: ignore[invalid-argument-type]
         openai_reasoning_summary="concise",
         openai_store=True,
         openai_previous_response_id="auto",
+        openai_service_tier="flex",
     )
 
     async def event_stream() -> AsyncGenerator[str]:

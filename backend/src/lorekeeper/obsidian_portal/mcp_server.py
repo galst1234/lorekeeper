@@ -52,7 +52,7 @@ _session: OAuth1Session | None = None
 
 
 async def _get_session() -> OAuth1Session:
-    global _session  # noqa: PLW0603
+    global _session  # ruff:ignore[global-statement]
     if _session is None:
         _session = await get_authenticated_session_async()
     return _session
@@ -217,7 +217,7 @@ async def fetch_character_tool(character_id: str, campaign_id: str = _CAMPAIGN_I
 
 
 @mcp.tool(tags={"Character"})
-async def create_character_tool(  # noqa: PLR0913, PLR0917
+async def create_character_tool(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     name: str,
     description: str | None = None,
     bio: str | None = None,
@@ -253,7 +253,7 @@ async def create_character_tool(  # noqa: PLR0913, PLR0917
 
     Returns:
         None
-    """  # noqa: E501
+    """  # ruff:ignore[line-too-long]
     tags: set[str] = tags or set()
     tags.add("AI Generated")
     session = await _get_session()
@@ -289,7 +289,7 @@ async def fetch_quests_tool(campaign_id: str = _CAMPAIGN_ID, page_id: str = _QUE
 
 
 @mcp.tool(tags={"WikiPage", "Quest"})
-async def create_quest_tool(  # noqa: PLR0913, PLR0917
+async def create_quest_tool(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     title: str,
     content: str,
     phase: str,
@@ -336,7 +336,7 @@ async def create_quest_tool(  # noqa: PLR0913, PLR0917
 
 
 @mcp.tool(tags={"WikiPage", "Quest"})
-async def update_quest_tool(  # noqa: PLR0913, PLR0917
+async def update_quest_tool(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     title: str,
     new_title: str | None = None,
     new_content: str | None = None,
@@ -391,7 +391,7 @@ async def update_quest_tool(  # noqa: PLR0913, PLR0917
 
 
 @mcp.tool(tags={"WikiPage", "Calendar"})
-async def fetch_calendar_entries_tool(  # noqa: PLR0913, PLR0917
+async def fetch_calendar_entries_tool(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     start_year: int,
     start_month_or_special_day: str,
     start_day: int | None = None,
@@ -444,7 +444,7 @@ async def fetch_calendar_entries_tool(  # noqa: PLR0913, PLR0917
 
 
 @mcp.tool(tags={"WikiPage", "Calendar"})
-async def add_calendar_entry_tool(  # noqa: PLR0913, PLR0917
+async def add_calendar_entry_tool(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     month_or_special_day: str,
     summary_title: str,
     day: int | None = None,
