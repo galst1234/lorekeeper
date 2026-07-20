@@ -27,7 +27,6 @@ class ModelChoice(StrEnum):
 
 class ReasoningEffort(StrEnum):
     NONE = "none"
-    MINIMAL = "minimal"
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -36,7 +35,6 @@ class ReasoningEffort(StrEnum):
 
 REASONING_METADATA: dict[ReasoningEffort, dict[str, str]] = {
     ReasoningEffort.NONE: {"name": "None", "description": "No reasoning - fastest responses"},
-    ReasoningEffort.MINIMAL: {"name": "Minimal", "description": "Very light reasoning pass"},
     ReasoningEffort.LOW: {"name": "Low", "description": "Light reasoning for simple multi-step questions"},
     ReasoningEffort.MEDIUM: {"name": "Medium", "description": "Balanced reasoning for harder questions"},
     ReasoningEffort.HIGH: {"name": "High", "description": "Deep reasoning for complex lore questions"},
@@ -154,7 +152,9 @@ logger = logging.getLogger(__name__)
 
 
 def build_model(choice: ModelChoice) -> OpenAIResponsesModel:
-    client = openai.AsyncOpenAI(api_key=settings.openai_api_key, max_retries=5)
+    # Flex-tier requests are queued and can run well past the SDK's 10-minute default;
+    # OpenAI recommends up to 15 minutes. See https://developers.openai.com/api/docs/guides/flex-processing
+    client = openai.AsyncOpenAI(api_key=settings.openai_api_key, max_retries=5, timeout=900)
     return OpenAIResponsesModel(
         choice.value,
         provider=OpenAIProvider(openai_client=client),
