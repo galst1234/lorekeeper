@@ -20,9 +20,9 @@ type EventStreamHandler = Callable[[Any, AsyncIterable[AgentStreamEvent]], Corou
 
 
 class ModelChoice(StrEnum):
-    GPT54_NANO = "gpt-5.4-nano-2026-03-17"
-    GPT54_MINI = "gpt-5.4-mini-2026-03-17"
-    GPT54 = "gpt-5.4-2026-03-05"
+    GPT56_LUNA = "gpt-5.6-luna"
+    GPT56_TERRA = "gpt-5.6-terra"
+    GPT56_SOL = "gpt-5.6-sol"
 
 
 class ReasoningEffort(StrEnum):
@@ -45,23 +45,23 @@ REASONING_METADATA: dict[ReasoningEffort, dict[str, str]] = {
 
 
 MODEL_METADATA: dict[ModelChoice, dict[str, str]] = {
-    ModelChoice.GPT54_NANO: {
-        "name": "GPT-5.4 nano $",
+    ModelChoice.GPT56_LUNA: {
+        "name": "GPT-5.6 luna $",
         "description": "Fast and efficient - great for everyday lore lookups",
         "color": "#16141a",
-        "default_reasoning": ReasoningEffort.NONE,
+        "default_reasoning": ReasoningEffort.LOW,
     },
-    ModelChoice.GPT54_MINI: {
-        "name": "GPT-5.4 mini $x3",
+    ModelChoice.GPT56_TERRA: {
+        "name": "GPT-5.6 terra $x2.5",
         "description": "Smarter reasoning for complex or multi-part questions",
         "color": "#7a3a10",
-        "default_reasoning": ReasoningEffort.NONE,
+        "default_reasoning": ReasoningEffort.MEDIUM,
     },
-    ModelChoice.GPT54: {
-        "name": "GPT-5.4 $x10",
+    ModelChoice.GPT56_SOL: {
+        "name": "GPT-5.6 sol $x5",
         "description": "Most capable - best for nuanced analysis and deep lore dives",
         "color": "#FF0000",
-        "default_reasoning": ReasoningEffort.NONE,
+        "default_reasoning": ReasoningEffort.MEDIUM,
     },
 }
 
@@ -155,7 +155,11 @@ logger = logging.getLogger(__name__)
 
 def build_model(choice: ModelChoice) -> OpenAIResponsesModel:
     client = openai.AsyncOpenAI(api_key=settings.openai_api_key, max_retries=5)
-    return OpenAIResponsesModel(choice.value, provider=OpenAIProvider(openai_client=client))
+    return OpenAIResponsesModel(
+        choice.value,
+        provider=OpenAIProvider(openai_client=client),
+        settings=OpenAIResponsesModelSettings(openai_service_tier="flex"),
+    )
 
 
 SYSTEM_PROMPT = (
@@ -211,7 +215,7 @@ def create_agent() -> Agent:
         timeout=60,
     )
 
-    model = build_model(ModelChoice.GPT54_NANO)
+    model = build_model(ModelChoice.GPT56_LUNA)
 
     return Agent(
         model=model,

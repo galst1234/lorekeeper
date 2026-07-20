@@ -42,9 +42,12 @@ interface SkillOption {
 }
 
 const SHOW_SKILL_HINT = true;
-const DEFAULT_MODEL = "gpt-5.4-nano-2026-03-17";
+const DEFAULT_MODEL = "gpt-5.6-luna";
 const LEGACY_MODEL_MIGRATIONS: Record<string, string> = {
   "gpt-5-mini-2025-08-07": DEFAULT_MODEL,
+  "gpt-5.4-nano-2026-03-17": DEFAULT_MODEL,
+  "gpt-5.4-mini-2026-03-17": DEFAULT_MODEL,
+  "gpt-5.4-2026-03-05": DEFAULT_MODEL,
 };
 
 const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g;
@@ -295,14 +298,14 @@ function getOrCreateModel() {
   const migrated = LEGACY_MODEL_MIGRATIONS[stored];
   if (migrated) {
     localStorage.setItem("lorekeeper_model", migrated);
-    localStorage.setItem("lorekeeper_reasoning_effort", "none");
+    localStorage.setItem("lorekeeper_reasoning_effort", "low");
     return migrated;
   }
   return stored;
 }
 
 function getOrCreateReasoningEffort() {
-  return localStorage.getItem("lorekeeper_reasoning_effort") ?? "none";
+  return localStorage.getItem("lorekeeper_reasoning_effort") ?? "low";
 }
 
 export default function App() {

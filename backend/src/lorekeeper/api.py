@@ -71,8 +71,8 @@ agent = LoreKeeperAgent()
 class ChatRequest(BaseModel):
     message: str
     session_id: str = ""
-    model: ModelChoice = ModelChoice.GPT54_NANO
-    reasoning_effort: ReasoningEffort = ReasoningEffort.NONE
+    model: ModelChoice = ModelChoice.GPT56_LUNA
+    reasoning_effort: ReasoningEffort = ReasoningEffort.LOW
 
 
 @app.get("/api/models")
@@ -342,6 +342,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         openai_reasoning_summary="concise",
         openai_store=True,
         openai_previous_response_id="auto",
+        openai_service_tier="flex",
     )
 
     async def event_stream() -> AsyncGenerator[str]:
