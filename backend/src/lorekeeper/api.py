@@ -338,7 +338,8 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     session_id = req.session_id or str(uuid.uuid4())
     run_model = build_model(req.model)
     run_settings = OpenAIResponsesModelSettings(
-        openai_reasoning_effort=req.reasoning_effort.value,
+        # pydantic-ai's stub doesn't yet include "max", GPT-5.6's newest reasoning tier
+        openai_reasoning_effort=req.reasoning_effort.value,  # ty: ignore[invalid-argument-type]
         openai_reasoning_summary="concise",
         openai_store=True,
         openai_previous_response_id="auto",

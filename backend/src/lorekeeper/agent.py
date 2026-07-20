@@ -31,6 +31,7 @@ class ReasoningEffort(StrEnum):
     MEDIUM = "medium"
     HIGH = "high"
     XHIGH = "xhigh"
+    MAX = "max"
 
 
 REASONING_METADATA: dict[ReasoningEffort, dict[str, str]] = {
@@ -38,7 +39,8 @@ REASONING_METADATA: dict[ReasoningEffort, dict[str, str]] = {
     ReasoningEffort.LOW: {"name": "Low", "description": "Light reasoning for simple multi-step questions"},
     ReasoningEffort.MEDIUM: {"name": "Medium", "description": "Balanced reasoning for harder questions"},
     ReasoningEffort.HIGH: {"name": "High", "description": "Deep reasoning for complex lore questions"},
-    ReasoningEffort.XHIGH: {"name": "xHigh", "description": "Maximum reasoning - slowest but most thorough"},
+    ReasoningEffort.XHIGH: {"name": "xHigh", "description": "Very deep reasoning for the hardest questions"},
+    ReasoningEffort.MAX: {"name": "Max", "description": "Maximum reasoning - slowest but most thorough"},
 }
 
 
