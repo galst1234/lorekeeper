@@ -15,11 +15,11 @@
     <option name="DEBUG_JUST_MY_CODE" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="RUN_TOOL" value="true" />
-    <option name="SCRIPT_NAME" value="fastmcp.cli" />
-    <option name="PARAMETERS" value="run src/lorekeeper/obsidian_portal/mcp_server.py:mcp --transport streamable-http --port 8090" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/backend/src/lorekeeper/obsidian_portal/mcp_server.py" />
+    <option name="PARAMETERS" value="" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
-    <option name="MODULE_MODE" value="true" />
+    <option name="MODULE_MODE" value="false" />
     <option name="REDIRECT_INPUT" value="false" />
     <option name="INPUT_FILE" value="" />
     <method v="2" />
