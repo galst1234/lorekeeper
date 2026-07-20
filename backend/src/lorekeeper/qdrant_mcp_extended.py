@@ -14,7 +14,9 @@ from mcp_server_qdrant.settings import (
 from pydantic import Field
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 
-from lorekeeper.config import settings  # noqa: F401 - must instantiate before EmbeddingProviderSettings reads env
+from lorekeeper.config import (
+    settings,  # ruff:ignore[unused-import] - must instantiate before EmbeddingProviderSettings reads env
+)
 from lorekeeper.observability import setup_observability
 
 # ---------------------------------------------------------------------------
@@ -103,7 +105,7 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
         # Register our extended tools
         self.register_extended_tools()
 
-    def register_extended_tools(self) -> None:  # noqa: C901, PLR0915
+    def register_extended_tools(self) -> None:  # ruff:ignore[complex-structure, too-many-statements]
         """Register additional tools for advanced retrieval operations."""
 
         async def get_chunk(
@@ -142,7 +144,7 @@ class ExtendedQdrantMCPServer(QdrantMCPServer):
                 f"<metadata>{metadata_str}</metadata></chunk>"
             )
 
-        async def expand_context(  # noqa: PLR0917
+        async def expand_context(  # ruff:ignore[too-many-positional-arguments]
             ctx: Context,
             document_id: Annotated[str, Field(description="The document ID from metadata (32-char hex string)")],
             chunk_index: Annotated[int, Field(description="The chunk index of the current chunk")],

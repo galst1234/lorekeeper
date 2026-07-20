@@ -28,7 +28,7 @@ async def fetch_calendar_entries(
     return get_entries(calendar, start, end)
 
 
-async def add_calendar_entry(  # noqa: PLR0913
+async def add_calendar_entry(  # ruff:ignore[too-many-arguments]
     session: OAuth1Session,
     *,
     month_or_special_day: str,

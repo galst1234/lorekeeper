@@ -352,7 +352,7 @@ def insert_quest(parsed: ParsedBody, quest: Quest) -> None:
     target_sub.dirty = True
 
 
-def update_quest_data(  # noqa: PLR0913, C901
+def update_quest_data(  # ruff:ignore[too-many-arguments, complex-structure]
     parsed: ParsedBody,
     title: str,
     *,

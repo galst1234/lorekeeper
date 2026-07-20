@@ -120,13 +120,13 @@ ignore = []
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
-    "PLR2004",   # magic value comparisons are fine in tests
-    "PLR0913",   # many fixtures/params is normal
-    "PLR0917",   # many positional args in parametrized test functions is normal
-    "PLC2701",   # importing private names for white-box unit testing is expected
-    "PLC1901",   # explicit `== ""` in assertions is clearer than `not x`
-    "RUF059",    # unused unpacked vars when only some return values are asserted
-    "E501",      # test assertions and parametrize strings can be long
+    "magic-value-comparison",          # magic value comparisons are fine in tests
+    "too-many-arguments",              # many fixtures/params is normal
+    "too-many-positional-arguments",   # many positional args in parametrized test functions is normal
+    "import-private-name",             # importing private names for white-box unit testing is expected
+    "compare-to-empty-string",         # explicit `== ""` in assertions is clearer than `not x`
+    "unused-unpacked-variable",        # unused unpacked vars when only some return values are asserted
+    "line-too-long",                   # test assertions and parametrize strings can be long
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
