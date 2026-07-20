@@ -8,6 +8,7 @@ from typing import Any
 
 import openai
 from pydantic_ai import Agent, AgentStreamEvent
+from pydantic_ai.capabilities import Instrumentation
 from pydantic_ai.mcp import MCPToolset
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 from pydantic_ai.models.openai import OpenAICompaction, OpenAIResponsesModel, OpenAIResponsesModelSettings
@@ -223,7 +224,7 @@ def create_agent() -> Agent:
         model=model,
         name="LoreKeeper",
         toolsets=[qdrant_mcp, obsidian_portal_mcp],
-        capabilities=[OpenAICompaction()],
+        capabilities=[OpenAICompaction(), Instrumentation()],
     )
 
 
