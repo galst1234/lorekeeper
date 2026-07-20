@@ -305,7 +305,13 @@ function getOrCreateModel() {
 }
 
 function getOrCreateReasoningEffort() {
-  return localStorage.getItem("lorekeeper_reasoning_effort") ?? "low";
+  const stored = localStorage.getItem("lorekeeper_reasoning_effort");
+  if (!stored) return "low";
+  if (stored === "minimal") {
+    localStorage.setItem("lorekeeper_reasoning_effort", "low");
+    return "low";
+  }
+  return stored;
 }
 
 export default function App() {
