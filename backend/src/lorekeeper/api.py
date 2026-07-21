@@ -266,20 +266,20 @@ async def _collect_agent_events(  # ruff:ignore[complex-structure, too-many-bran
                     break
 
         elif isinstance(event, FunctionToolResultEvent):
-            info = state.tcid_to_info.get(event.tool_call_id)
+            info = state.tcid_to_info.get(event.part.tool_call_id)
             if info is None:
                 logger.warning(
                     "tool_response for unknown tool_call_id %s — emitting with call_index=-1",
-                    event.tool_call_id,
+                    event.part.tool_call_id,
                 )
-            tool_name = info[0] if info else event.tool_call_id
+            tool_name = info[0] if info else event.part.tool_call_id
             call_index = info[1] if info else -1
             await queue.put(
                 json.dumps({
                     "type": "tool_response",
                     "tool_name": tool_name,
                     "call_index": call_index,
-                    "content": str(event.result.content),
+                    "content": str(event.part.content),
                 }),
             )
 
@@ -318,12 +318,12 @@ async def _run_agent_task(  # ruff:ignore[too-many-arguments]
                 if delta:
                     await queue.put(json.dumps({"type": "text_delta", "delta": delta}))
         try:  # ruff:ignore[too-many-statements-in-try-clause]
-            usage = stream_ref.usage()  # type: ignore[union-attr]
+            usage = stream_ref.usage  # type: ignore[union-attr]
             model_label = getattr(run_model, "model_name", str(run_model))
-            if getattr(usage, "request_tokens", None):
-                _token_counter.add(usage.request_tokens, {"model": model_label, "type": "input"})
-            if getattr(usage, "response_tokens", None):
-                _token_counter.add(usage.response_tokens, {"model": model_label, "type": "output"})
+            if getattr(usage, "input_tokens", None):
+                _token_counter.add(usage.input_tokens, {"model": model_label, "type": "input"})
+            if getattr(usage, "output_tokens", None):
+                _token_counter.add(usage.output_tokens, {"model": model_label, "type": "output"})
         except (AttributeError, TypeError):
             pass
     except Exception as e:
@@ -338,8 +338,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     session_id = req.session_id or str(uuid.uuid4())
     run_model = build_model(req.model)
     run_settings = OpenAIResponsesModelSettings(
-        # pydantic-ai's stub doesn't yet include "max", GPT-5.6's newest reasoning tier
-        openai_reasoning_effort=req.reasoning_effort.value,  # ty: ignore[invalid-argument-type]
+        openai_reasoning_effort=req.reasoning_effort.value,
         openai_reasoning_summary="concise",
         openai_store=True,
         openai_previous_response_id="auto",
