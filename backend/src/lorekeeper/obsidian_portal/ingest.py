@@ -60,6 +60,9 @@ def prepare_document_points(doc: Document, embed_model: TextEmbedding) -> list[P
 
 
 async def upsert_points(client: AsyncQdrantClient, collection_name: str, points: list[PointStruct]) -> None:
+    if not points:
+        print("No points to upsert, skipping.")
+        return
     print(f"Upserting {len(points)} points into collection '{collection_name}'")
     await client.upsert(collection_name=collection_name, points=points)
     print("Upsert completed.")
