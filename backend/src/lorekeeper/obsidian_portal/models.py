@@ -1,7 +1,7 @@
 import abc
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 DocType = Literal["WikiPage", "Post", "Character"]
 
@@ -39,6 +39,11 @@ class Page(Document):
     title: str = Field(validation_alias="name")
     body: str
     source_url: str = Field(validation_alias="wiki_page_url")
+
+    @field_validator("body", mode="before")
+    @classmethod
+    def _default_empty_body(cls, v: str | None) -> str:
+        return v or ""
 
     @property
     def content(self) -> str:
