@@ -7,6 +7,7 @@ from collections.abc import AsyncGenerator, AsyncIterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
+import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -328,6 +329,7 @@ async def _run_agent_task(  # ruff:ignore[too-many-arguments]
             pass
     except Exception as e:
         logger.error("Stream error: %s", e, exc_info=True)
+        sentry_sdk.capture_exception(e)
         await queue.put(json.dumps({"type": "error", "error": str(e)}))
     finally:
         await queue.put(None)
